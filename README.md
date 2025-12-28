@@ -1,6 +1,6 @@
 # BambooHepMl
 
-一个面向高能物理的机器学习框架，结合了 weaver-core 的强大特征工程能力和 Made-With-ML 的现代 ML 工程实践。
+一个面向高能物理的机器学习框架，提供配置驱动的特征工程和完整的 ML pipeline 支持。
 
 ## 设计理念
 
@@ -38,7 +38,7 @@ FeatureGraph 是框架的核心，作为**唯一可信的特征事实源（Singl
 
 ## 核心特性
 
-### 1. 数据与特征系统（weaver-core 级别）
+### 1. 数据与特征系统
 
 - ✅ Config-driven 特征定义（YAML）
 - ✅ Expression 表达式引擎（支持 numpy/awkward 运算）
@@ -47,7 +47,7 @@ FeatureGraph 是框架的核心，作为**唯一可信的特征事实源（Singl
 - ✅ 支持 sequence / transformer 输入
 - ✅ 零硬编码：所有特征工程在配置中完成
 
-### 2. ML Pipeline（Made-With-ML 级别）
+### 2. ML Pipeline
 
 - ✅ 清晰的模块边界（config / data / model / engine / tasks / serve）
 - ✅ 完整 ML pipeline：data → feature → model → train → eval → export → serve
@@ -295,24 +295,47 @@ pytest tests/integration/test_full_pipeline.py::test_full_pipeline_flow -v
 
 ## 架构亮点
 
-### 1. FeatureGraph 作为唯一特征源
+### 1. 物理感知的动态特征图 (Physics-Aware Feature Graph)
+
+不仅支持静态的列映射，还能通过 ExpressionEngine 和 OperatorRegistry 在 YAML 中直接定义复杂的物理变量（如 `delta_r`、`mass`），并自动处理依赖关系和 awkward 数组的广播/切片。这是对 HEP 用户最友好的特性。
 
 - 彻底消除了特征系统的"双重性"问题
 - Config-driven，真正达到 DSL 级别
 - 自动依赖解析、DAG 管理、循环检测
 - 状态持久化（Normalizer 参数）
+- 支持复杂的物理表达式和向量化计算
 
-### 2. Metadata-Driven 架构
+### 2. 无缝的分布式编排 (Seamless Distributed Orchestration)
 
-- 训练/导出/服务完全解耦
+PipelineOrchestrator 屏蔽了单机与分布式环境的差异。用户只需修改配置，代码即可从本地调试平滑迁移到 Ray 集群，且数据加载（Source）、处理（Processor）和训练（Trainer）的生命周期被统一管理。
+
+- TrainingBackend 抽象（LocalBackend / RayBackend）实现透明切换
+- 统一的训练接口，无需修改训练代码
+- 支持本地开发、Ray 分布式训练、SLURM 集群提交
+
+### 3. 闭环的元数据管理 (Closed-Loop Metadata Management)
+
+修复后的系统具备了完整的元数据自动保存机制（`pipeline_state`、`feature_spec`、`normalizer_state`）。这意味着训练出的不仅仅是一个权重文件，而是一个包含了"如何处理原始数据"到"如何输出预测"全链路信息的自包含包，极大地提升了模型的可复现性和 Serving 的可靠性。
+
+- Metadata-driven 架构：训练/导出/服务完全解耦
 - 生产环境不需要重现训练时的 Dataset
+- 自动保存和加载 Normalizer 状态
 - 符合 ML 工程最佳实践
 
-### 3. LearningParadigm 系统
+### 4. LearningParadigm 系统
 
-- 统一的学习范式接口，扩展性强
+统一的学习范式接口，扩展性强：
+
 - 半监督和无监督学习完整实现
-- 支持多种策略和方法
+- 支持多种策略和方法（self-training、consistency、pseudo-labeling、autoencoder、VAE、contrastive learning）
+- 与 Trainer 解耦，逻辑清晰
+
+## 参考
+
+本框架在设计过程中参考了以下项目：
+
+- [weaver-core](https://github.com/colizz/weaver-core) - 高能物理特征工程框架
+- [Made-With-ML](https://github.com/GokuMohandas/made-with-ml) - 现代 ML 工程实践
 
 ## 许可证
 

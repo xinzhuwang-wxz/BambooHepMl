@@ -99,10 +99,11 @@ def create_app(
                     model_info = {"model_type": "onnx", "onnx_path": onnx_path}
 
                     # 尝试加载 metadata 获取 input_key
-                    if metadata_path is None and model_path:
-                        metadata_path = Path(model_path).parent / "metadata.json"
-                    if metadata_path and Path(metadata_path).exists():
-                        metadata = load_model_metadata(metadata_path)
+                    resolved_metadata_path = metadata_path
+                    if resolved_metadata_path is None and model_path:
+                        resolved_metadata_path = str(Path(model_path).parent / "metadata.json")
+                    if resolved_metadata_path and Path(resolved_metadata_path).exists():
+                        metadata = load_model_metadata(resolved_metadata_path)
                         input_key = metadata.get("input_key", "event")
                     else:
                         input_key = "event"  # 默认
@@ -119,14 +120,15 @@ def create_app(
                 raise FileNotFoundError(f"Model file not found: {model_path}")
 
             # 加载 metadata
-            if metadata_path is None:
-                metadata_path = model_path_obj.parent / "metadata.json"
+            resolved_metadata_path = metadata_path
+            if resolved_metadata_path is None:
+                resolved_metadata_path = str(model_path_obj.parent / "metadata.json")
             else:
-                metadata_path = Path(metadata_path)
+                resolved_metadata_path = str(Path(resolved_metadata_path))
 
-            if metadata_path.exists():
+            if Path(resolved_metadata_path).exists():
                 # 从 metadata 加载
-                metadata = load_model_metadata(metadata_path)
+                metadata = load_model_metadata(resolved_metadata_path)
                 model_config = metadata["model_config"]
                 input_dim = metadata["input_dim"]
                 input_key = metadata["input_key"]
@@ -135,7 +137,7 @@ def create_app(
                 model_params["input_dim"] = input_dim
             elif pipeline_config_path:
                 # 向后兼容：从 pipeline 配置加载（已废弃）
-                logger.warning(f"Metadata file not found at {metadata_path}. " "Falling back to pipeline_config_path (deprecated).")
+                logger.warning(f"Metadata file not found at {resolved_metadata_path}. " "Falling back to pipeline_config_path (deprecated).")
                 from ..pipeline import PipelineOrchestrator
 
                 orchestrator = PipelineOrchestrator(pipeline_config_path)

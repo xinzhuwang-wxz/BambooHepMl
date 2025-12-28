@@ -11,28 +11,25 @@
 from __future__ import annotations
 
 import abc
-import json
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 
-from ..config import EFS_DIR, MLFLOW_TRACKING_URI, logger
-from ..engine import Evaluator, Trainer
+from ..config import EFS_DIR, logger
+from ..engine import Trainer
 from ..models import get_model
 from ..pipeline import PipelineOrchestrator
 from ..utils import collate_fn, set_seeds
+from ..utils.metadata import save_model_metadata
 
 # Ray imports (optional)
 try:
     import ray
     import ray.train as train
-    from ray.air.integrations.mlflow import MLflowLoggerCallback
-    from ray.data import Dataset
-    from ray.train import Checkpoint, CheckpointConfig, DataConfig, RunConfig, ScalingConfig
+    from ray.train import Checkpoint, CheckpointConfig, RunConfig, ScalingConfig
     from ray.train.torch import TorchTrainer
     from torch.nn.parallel.distributed import DistributedDataParallel
 
@@ -390,7 +387,7 @@ class RayBackend(TrainingBackend):
                     orchestrator.save_pipeline_state(output_dir / "pipeline_state.json")
 
                 # 保存 Metadata
-                from ..utils import save_model_metadata
+                from ..utils.metadata import save_model_metadata
 
                 feature_graph = orchestrator.feature_graph
                 feature_spec = feature_graph.output_spec() if feature_graph else {}
@@ -484,7 +481,7 @@ def train_task(
         orchestrator.save_pipeline_state(output_path / "pipeline_state.json")
 
         # 保存 Metadata (包含 FeatureGraph 状态)
-        from ..utils import save_model_metadata
+        from ..utils.metadata import save_model_metadata
 
         feature_graph = orchestrator.get_feature_graph()
         feature_spec = feature_graph.output_spec() if feature_graph else {}
