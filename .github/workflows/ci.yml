@@ -23,17 +23,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install flake8 black>=24.0.0 isort mypy
 
-      - name: Run flake8 (simplified)
+      - name: Run flake8
         run: |
-          flake8 bamboohepml --count --select=E9,F63,F7,F82 --show-source --statistics || true
-          flake8 bamboohepml --count --exit-zero --max-complexity=10 --max-line-length=150 --statistics || true
+          flake8 bamboohepml --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 bamboohepml --count --exit-zero --max-complexity=10 --max-line-length=150 --statistics
 
-      - name: Run black check (simplified)
+      - name: Run black check
         run: |
-          black --check bamboohepml tests || echo "Formatting issues found (non-blocking)"
+          black --check bamboohepml tests
 
-      - name: Run isort check (simplified)
-        run: isort --check-only bamboohepml tests || echo "Import sorting issues found (non-blocking)"
+      - name: Run isort check
+        run: isort --check-only bamboohepml tests
 
   test:
     name: Test Python 3.10
@@ -52,7 +52,7 @@ jobs:
           pip install -e .
           pip install -e ".[test]"
 
-      - name: Run unit tests (simplified)
+      - name: Run unit tests
         timeout-minutes: 10
         run: |
           pytest tests/ \
@@ -65,6 +65,20 @@ jobs:
             --ignore=tests/serve/test_onnx.py \
             --ignore=tests/data/test_comprehensive_data_reading.py \
             --ignore=tests/data/test_comprehensive_verbose.py
+
+      - name: Run module availability tests
+        timeout-minutes: 5
+        run: |
+          pytest tests/integration/test_full_pipeline.py::test_module_availability -v
+
+      - name: Run pipeline integration tests
+        timeout-minutes: 15
+        run: |
+          pytest tests/integration/test_full_pipeline.py \
+            -v \
+            --tb=short \
+            -k "pipeline" \
+            --maxfail=2
 
       - name: Upload coverage (optional)
         uses: codecov/codecov-action@v3
