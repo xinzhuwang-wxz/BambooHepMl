@@ -3,8 +3,9 @@
 
 提供命令行接口启动服务。
 """
-import typer
 from typing import Optional
+
+import typer
 from typing_extensions import Annotated
 
 from .fastapi_server import serve_fastapi
@@ -43,4 +44,3 @@ def ray(
 
 
 # 这些函数会被主 CLI 导入使用
-

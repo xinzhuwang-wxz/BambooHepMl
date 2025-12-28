@@ -7,8 +7,9 @@
 - HEP 常用函数（pad, clip, p4 等）
 """
 import math
-import numpy as np
+
 import awkward as ak
+import numpy as np
 
 
 def _hash(*args):
@@ -62,7 +63,7 @@ def _stack(arrays, axis=1):
         return ak.concatenate([a.__getitem__(s) for a in arrays], axis=axis)
 
 
-def _pad(a, maxlen, value=0, dtype='float32'):
+def _pad(a, maxlen, value=0, dtype="float32"):
     """将数组填充到指定长度。
 
     Args:
@@ -87,11 +88,11 @@ def _pad(a, maxlen, value=0, dtype='float32'):
             if not len(s):
                 continue
             trunc = s[:maxlen].astype(dtype)
-            x[idx, :len(trunc)] = trunc
+            x[idx, : len(trunc)] = trunc
         return x
 
 
-def _repeat_pad(a, maxlen, shuffle=False, dtype='float32'):
+def _repeat_pad(a, maxlen, shuffle=False, dtype="float32"):
     """重复填充数组到指定长度（每个事件独立处理）。
 
     Args:
@@ -182,6 +183,7 @@ def _knn(support, query, k, n_jobs=1):
         近邻索引。
     """
     from scipy.spatial import cKDTree
+
     kdtree = cKDTree(support)
     d, idx = kdtree.query(query, k, n_jobs=n_jobs)
     return idx
@@ -201,13 +203,12 @@ def _batch_knn(supports, queries, k, maxlen_s, maxlen_q=None, n_jobs=1):
     Returns:
         批量近邻索引。
     """
-    assert (len(supports) == len(queries))
+    assert len(supports) == len(queries)
     if maxlen_q is None:
         maxlen_q = maxlen_s
-    batch_knn_idx = np.ones((len(supports), maxlen_q, k), dtype='int32') * (maxlen_s - 1)
+    batch_knn_idx = np.ones((len(supports), maxlen_q, k), dtype="int32") * (maxlen_s - 1)
     for i, (s, q) in enumerate(zip(supports, queries)):
-        batch_knn_idx[i, :len(q[:maxlen_q]), :] = _knn(
-            s[:maxlen_s], q[:maxlen_q], k, n_jobs=n_jobs).reshape((-1, k))
+        batch_knn_idx[i, : len(q[:maxlen_q]), :] = _knn(s[:maxlen_s], q[:maxlen_q], k, n_jobs=n_jobs).reshape((-1, k))
     return batch_knn_idx
 
 
@@ -263,8 +264,9 @@ def _p4_from_pxpypze(px, py, pz, energy):
     """
     try:
         import vector
+
         vector.register_awkward()
-        return vector.zip({'px': px, 'py': py, 'pz': pz, 'energy': energy})
+        return vector.zip({"px": px, "py": py, "pz": pz, "energy": energy})
     except ImportError:
         raise ImportError("需要安装 vector 包：pip install vector")
 
@@ -283,8 +285,9 @@ def _p4_from_ptetaphie(pt, eta, phi, energy):
     """
     try:
         import vector
+
         vector.register_awkward()
-        return vector.zip({'pt': pt, 'eta': eta, 'phi': phi, 'energy': energy})
+        return vector.zip({"pt": pt, "eta": eta, "phi": phi, "energy": energy})
     except ImportError:
         raise ImportError("需要安装 vector 包：pip install vector")
 
@@ -303,13 +306,14 @@ def _p4_from_ptetaphim(pt, eta, phi, mass):
     """
     try:
         import vector
+
         vector.register_awkward()
-        return vector.zip({'pt': pt, 'eta': eta, 'phi': phi, 'mass': mass})
+        return vector.zip({"pt": pt, "eta": eta, "phi": phi, "mass": mass})
     except ImportError:
         raise ImportError("需要安装 vector 包：pip install vector")
 
 
-def _get_variable_names(expr, exclude=['awkward', 'ak', 'np', 'numpy', 'math', 'len']):
+def _get_variable_names(expr, exclude=["awkward", "ak", "np", "numpy", "math", "len"]):
     """从表达式中提取变量名。
 
     Args:
@@ -320,9 +324,11 @@ def _get_variable_names(expr, exclude=['awkward', 'ak', 'np', 'numpy', 'math', '
         list: 变量名列表（已排序）。
     """
     import ast
+
     root = ast.parse(expr)
-    return sorted({node.id for node in ast.walk(root) if isinstance(
-        node, ast.Name) and not node.id.startswith('_')} - set(exclude))
+    return sorted(
+        {node.id for node in ast.walk(root) if isinstance(node, ast.Name) and not node.id.startswith("_")} - set(exclude)
+    )
 
 
 def _eval_expr(expr, table):
@@ -336,26 +342,27 @@ def _eval_expr(expr, table):
         表达式求值结果。
     """
     tmp = {k: table[k] for k in _get_variable_names(expr)}
-    tmp.update({
-        'math': math,
-        'np': np,
-        'numpy': np,
-        'ak': ak,
-        'awkward': ak,
-        'len': len,
-        '_hash': _hash,
-        '_concat': _concat,
-        '_stack': _stack,
-        '_pad': _pad,
-        '_repeat_pad': _repeat_pad,
-        '_clip': _clip,
-        '_batch_knn': _batch_knn,
-        '_batch_permute_indices': _batch_permute_indices,
-        '_batch_argsort': _batch_argsort,
-        '_batch_gather': _batch_gather,
-        '_p4_from_pxpypze': _p4_from_pxpypze,
-        '_p4_from_ptetaphie': _p4_from_ptetaphie,
-        '_p4_from_ptetaphim': _p4_from_ptetaphim,
-    })
+    tmp.update(
+        {
+            "math": math,
+            "np": np,
+            "numpy": np,
+            "ak": ak,
+            "awkward": ak,
+            "len": len,
+            "_hash": _hash,
+            "_concat": _concat,
+            "_stack": _stack,
+            "_pad": _pad,
+            "_repeat_pad": _repeat_pad,
+            "_clip": _clip,
+            "_batch_knn": _batch_knn,
+            "_batch_permute_indices": _batch_permute_indices,
+            "_batch_argsort": _batch_argsort,
+            "_batch_gather": _batch_gather,
+            "_p4_from_pxpypze": _p4_from_pxpypze,
+            "_p4_from_ptetaphie": _p4_from_ptetaphie,
+            "_p4_from_ptetaphim": _p4_from_ptetaphim,
+        }
+    )
     return eval(expr, tmp)
-

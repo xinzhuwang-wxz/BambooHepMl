@@ -3,20 +3,20 @@
 
 直接在本地执行任务，不使用集群调度系统。
 """
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from ..config import logger
-from ..tasks import train_task, predict_task, export_task, inspect_task
+from ..tasks import export_task, inspect_task, predict_task, train_task
 from .base import BaseScheduler
 
 
 class LocalScheduler(BaseScheduler):
     """
     本地调度器
-    
+
     直接在本地执行任务，不使用集群调度系统。
     """
-    
+
     def submit_train(
         self,
         pipeline_config_path: str,
@@ -32,7 +32,7 @@ class LocalScheduler(BaseScheduler):
     ) -> Dict[str, Any]:
         """提交训练任务（本地执行）。"""
         logger.info("Using Local Scheduler for training")
-        
+
         return train_task(
             pipeline_config_path=pipeline_config_path,
             experiment_name=experiment_name,
@@ -44,7 +44,7 @@ class LocalScheduler(BaseScheduler):
             num_workers=num_workers,
             gpu_per_worker=gpu_per_worker,
         )
-    
+
     def submit_predict(
         self,
         pipeline_config_path: str,
@@ -56,7 +56,7 @@ class LocalScheduler(BaseScheduler):
     ) -> list:
         """提交预测任务（本地执行）。"""
         logger.info("Using Local Scheduler for prediction")
-        
+
         return predict_task(
             pipeline_config_path=pipeline_config_path,
             model_path=model_path,
@@ -64,7 +64,7 @@ class LocalScheduler(BaseScheduler):
             batch_size=batch_size,
             return_probabilities=return_probabilities,
         )
-    
+
     def submit_export(
         self,
         pipeline_config_path: str,
@@ -76,7 +76,7 @@ class LocalScheduler(BaseScheduler):
     ) -> Dict[str, Any]:
         """提交导出任务（本地执行）。"""
         logger.info("Using Local Scheduler for export")
-        
+
         return export_task(
             pipeline_config_path=pipeline_config_path,
             model_path=model_path,
@@ -84,7 +84,7 @@ class LocalScheduler(BaseScheduler):
             input_shape=input_shape,
             opset_version=opset_version,
         )
-    
+
     def submit_inspect(
         self,
         pipeline_config_path: str,
@@ -96,7 +96,7 @@ class LocalScheduler(BaseScheduler):
     ) -> Dict[str, Any]:
         """提交检查任务（本地执行）。"""
         logger.info("Using Local Scheduler for inspection")
-        
+
         return inspect_task(
             pipeline_config_path=pipeline_config_path,
             output_path=output_path,
@@ -104,4 +104,3 @@ class LocalScheduler(BaseScheduler):
             inspect_data=inspect_data,
             inspect_features=inspect_features,
         )
-

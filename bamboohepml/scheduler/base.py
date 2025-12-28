@@ -4,20 +4,20 @@
 定义调度器接口。
 """
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 
 
 class BaseScheduler(ABC):
     """
     调度器基类
-    
+
     所有调度器都应该继承此类，实现：
     - submit_train: 提交训练任务
     - submit_predict: 提交预测任务
     - submit_export: 提交导出任务
     - submit_inspect: 提交检查任务
     """
-    
+
     @abstractmethod
     def submit_train(
         self,
@@ -34,7 +34,7 @@ class BaseScheduler(ABC):
     ) -> Any:
         """提交训练任务。"""
         pass
-    
+
     @abstractmethod
     def submit_predict(
         self,
@@ -47,7 +47,7 @@ class BaseScheduler(ABC):
     ) -> Any:
         """提交预测任务。"""
         pass
-    
+
     @abstractmethod
     def submit_export(
         self,
@@ -60,7 +60,7 @@ class BaseScheduler(ABC):
     ) -> Any:
         """提交导出任务。"""
         pass
-    
+
     @abstractmethod
     def submit_inspect(
         self,
@@ -73,4 +73,3 @@ class BaseScheduler(ABC):
     ) -> Any:
         """提交检查任务。"""
         pass
-

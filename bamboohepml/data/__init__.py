@@ -10,9 +10,9 @@
 
 from .config import DataConfig
 from .dataset import HEPDataset, TransformerDataset
-from .sources import DataSource, DataSourceFactory, ROOTDataSource, ParquetDataSource, HDF5DataSource
-from .preprocess import AutoStandardizer, WeightMaker
 from .fileio import read_files
+from .preprocess import AutoStandardizer, WeightMaker
+from .sources import DataSource, DataSourceFactory, HDF5DataSource, ParquetDataSource, ROOTDataSource
 
 __all__ = [
     "DataConfig",

@@ -9,7 +9,6 @@
 from .mlp import MLPClassifier, MLPRegressor  # noqa: F401
 
 __all__ = [
-    'MLPClassifier',
-    'MLPRegressor',
+    "MLPClassifier",
+    "MLPRegressor",
 ]
-

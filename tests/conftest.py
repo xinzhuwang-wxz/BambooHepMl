@@ -1,15 +1,16 @@
 """
 pytest 配置和共享 fixtures
 """
+import shutil
+import tempfile
+from pathlib import Path
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from pathlib import Path
-import tempfile
-import shutil
 
-from bamboohepml.models import get_model
 from bamboohepml.engine import Predictor
+from bamboohepml.models import get_model
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def temp_dir():
 @pytest.fixture
 def sample_model():
     """创建示例模型。"""
-    model = get_model('mlp_classifier', input_dim=10, hidden_dims=[64, 32], num_classes=2)
+    model = get_model("mlp_classifier", input_dim=10, hidden_dims=[64, 32], num_classes=2)
     return model
 
 
@@ -48,11 +49,10 @@ def sample_labels():
 @pytest.fixture
 def sample_data(sample_features, sample_labels):
     """创建示例数据。"""
-    from torch.utils.data import TensorDataset, DataLoader
-    
+    from torch.utils.data import DataLoader, TensorDataset
+
     features_tensor = torch.tensor(sample_features)
     labels_tensor = torch.tensor(sample_labels)
     dataset = TensorDataset(features_tensor, labels_tensor)
     dataloader = DataLoader(dataset, batch_size=8)
     return dataloader
-

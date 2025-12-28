@@ -10,7 +10,7 @@
 
 from .expression import ExpressionEngine, OperatorRegistry
 from .feature_graph import FeatureGraph, FeatureNode
-from .processors import FeatureProcessor, Normalizer, Clipper, Padder
+from .processors import Clipper, FeatureProcessor, Normalizer, Padder
 
 __all__ = [
     "ExpressionEngine",
@@ -22,4 +22,3 @@ __all__ = [
     "Clipper",
     "Padder",
 ]
-

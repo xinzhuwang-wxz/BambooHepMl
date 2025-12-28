@@ -8,10 +8,10 @@
 """
 
 from .base import DataSource, DataSourceConfig
-from .root_source import ROOTDataSource
-from .parquet_source import ParquetDataSource
-from .hdf5_source import HDF5DataSource
 from .factory import DataSourceFactory
+from .hdf5_source import HDF5DataSource
+from .parquet_source import ParquetDataSource
+from .root_source import ROOTDataSource
 
 __all__ = [
     "DataSource",
@@ -21,4 +21,3 @@ __all__ = [
     "HDF5DataSource",
     "DataSourceFactory",
 ]
-

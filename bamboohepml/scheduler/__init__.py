@@ -10,8 +10,7 @@ from .local import LocalScheduler
 from .slurm import SLURMScheduler
 
 __all__ = [
-    'BaseScheduler',
-    'LocalScheduler',
-    'SLURMScheduler',
+    "BaseScheduler",
+    "LocalScheduler",
+    "SLURMScheduler",
 ]
-

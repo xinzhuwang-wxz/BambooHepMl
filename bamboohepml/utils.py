@@ -139,4 +139,3 @@ def dict_to_list(data: Dict, keys: List[str]) -> List[Dict[str, Any]]:
         new_dict = {key: data[key][i] for key in keys}
         list_of_dicts.append(new_dict)
     return list_of_dicts
-

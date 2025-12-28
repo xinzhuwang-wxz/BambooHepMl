@@ -7,10 +7,9 @@ Tasks 子系统
 - export: 导出任务（ONNX）
 - inspect: 检查任务（数据/特征检查）
 """
-from .train import train_task
-from .predict import predict_task
 from .export import export_task
 from .inspect import inspect_task
+from .predict import predict_task
+from .train import train_task
 
-__all__ = ['train_task', 'predict_task', 'export_task', 'inspect_task']
-
+__all__ = ["train_task", "predict_task", "export_task", "inspect_task"]

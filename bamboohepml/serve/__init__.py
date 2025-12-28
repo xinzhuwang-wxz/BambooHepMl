@@ -7,14 +7,13 @@
 - ONNX 推理接口
 """
 from .fastapi_server import create_app, serve_fastapi
-from .ray_serve import RayServeDeployment, serve_ray
 from .onnx_predictor import ONNXPredictor
+from .ray_serve import RayServeDeployment, serve_ray
 
 __all__ = [
-    'create_app',
-    'serve_fastapi',
-    'RayServeDeployment',
-    'serve_ray',
-    'ONNXPredictor',
+    "create_app",
+    "serve_fastapi",
+    "RayServeDeployment",
+    "serve_ray",
+    "ONNXPredictor",
 ]
-

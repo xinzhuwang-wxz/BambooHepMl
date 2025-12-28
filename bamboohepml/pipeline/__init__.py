@@ -9,5 +9,4 @@ Pipeline Orchestrator
 """
 from .orchestrator import PipelineOrchestrator
 
-__all__ = ['PipelineOrchestrator']
-
+__all__ = ["PipelineOrchestrator"]

@@ -1,14 +1,13 @@
 """
 ONNX 推理测试
 """
-import pytest
-import numpy as np
-import torch
 import onnx
-from pathlib import Path
+import pytest
+import torch
 
 try:
     from bamboohepml.serve import ONNXPredictor
+
     ONNX_AVAILABLE = True
 except ImportError:
     ONNX_AVAILABLE = False
@@ -20,23 +19,23 @@ def test_onnx_export_and_predict(temp_dir, sample_model, sample_features):
     # 导出 ONNX
     onnx_path = temp_dir / "test_model.onnx"
     dummy_input = torch.randn(1, 10)
-    
+
     torch.onnx.export(
         sample_model,
-        {'features': dummy_input},
+        {"features": dummy_input},
         str(onnx_path),
-        input_names=['features'],
-        output_names=['output'],
+        input_names=["features"],
+        output_names=["output"],
         opset_version=11,
     )
-    
+
     # 验证 ONNX 模型
     onnx_model = onnx.load(str(onnx_path))
     onnx.checker.check_model(onnx_model)
-    
+
     # 创建 ONNX 预测器
     predictor = ONNXPredictor(str(onnx_path))
-    
+
     # 预测
     results = predictor.predict(sample_features)
     assert len(results) == len(sample_features)
@@ -49,19 +48,19 @@ def test_onnx_batch_predict(temp_dir, sample_model, sample_features):
     # 导出 ONNX
     onnx_path = temp_dir / "test_model.onnx"
     dummy_input = torch.randn(1, 10)
-    
+
     torch.onnx.export(
         sample_model,
-        {'features': dummy_input},
+        {"features": dummy_input},
         str(onnx_path),
-        input_names=['features'],
-        output_names=['output'],
+        input_names=["features"],
+        output_names=["output"],
         opset_version=11,
     )
-    
+
     # 创建 ONNX 预测器
     predictor = ONNXPredictor(str(onnx_path))
-    
+
     # 批量预测
     features_list = sample_features.tolist()
     results = predictor.predict_batch(features_list)
@@ -74,22 +73,21 @@ def test_onnx_model_info(temp_dir, sample_model):
     # 导出 ONNX
     onnx_path = temp_dir / "test_model.onnx"
     dummy_input = torch.randn(1, 10)
-    
+
     torch.onnx.export(
         sample_model,
-        {'features': dummy_input},
+        {"features": dummy_input},
         str(onnx_path),
-        input_names=['features'],
-        output_names=['output'],
+        input_names=["features"],
+        output_names=["output"],
         opset_version=11,
     )
-    
+
     # 创建 ONNX 预测器
     predictor = ONNXPredictor(str(onnx_path))
-    
+
     # 获取模型信息
     info = predictor.get_model_info()
     assert "onnx_path" in info
     assert "input_name" in info
     assert "output_name" in info
-

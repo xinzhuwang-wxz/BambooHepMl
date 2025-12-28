@@ -7,6 +7,7 @@ import sys
 # 尝试导入全局 logger，如果失败则创建本地 logger
 try:
     from bamboohepml.config import logger as base_logger
+
     _logger = base_logger
 except (ImportError, AttributeError):
     # 如果导入失败，创建本地 logger
@@ -33,4 +34,3 @@ def warn_n_times(msg, n=10, logger=_logger):
     if _warning_counter[msg] < n:
         logger.warning(msg)
     _warning_counter[msg] += 1
-
