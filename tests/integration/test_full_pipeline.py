@@ -156,14 +156,13 @@ def test_train_eval_pipeline():
 
     # 4. 评估
     print("\n4. 评估模型...")
-    evaluator = Evaluator(
+    evaluator = Evaluator(task_type="classification")
+    metrics = evaluator.evaluate(
         model=model,
-        test_loader=val_loader,
+        dataloader=val_loader,
         loss_fn=torch.nn.CrossEntropyLoss(),
         device=torch.device("cpu"),
     )
-
-    metrics = evaluator.evaluate()
     assert "loss" in metrics
     assert "accuracy" in metrics
     print(f"   ✓ 评估完成: loss={metrics['loss']:.4f}, accuracy={metrics['accuracy']:.4f}")
@@ -216,8 +215,15 @@ def test_export_predict_pipeline():
         print("\n3. 测试预测...")
         predictor = Predictor(model, device=torch.device("cpu"))
 
-        test_features = torch.randn(10, 10)
-        results = predictor.predict_batch(test_features.numpy().tolist())
+        # 创建测试数据加载器
+        test_dataset = TensorDataset(torch.randn(10, 10))
+
+        def test_collate_fn(batch):
+            X = torch.stack([x[0] for x in batch])
+            return {"_features": X}
+
+        test_loader = DataLoader(test_dataset, batch_size=10, collate_fn=test_collate_fn)
+        results = predictor.predict(test_loader)
 
         assert len(results) == 10
         assert "prediction" in results[0]
@@ -270,13 +276,13 @@ def test_full_pipeline_integration():
 
     # 4. Eval: 评估模型
     print("\n4. [EVAL] 评估模型...")
-    evaluator = Evaluator(
+    evaluator = Evaluator(task_type="classification")
+    metrics = evaluator.evaluate(
         model=model,
-        test_loader=val_loader,
+        dataloader=val_loader,
         loss_fn=torch.nn.CrossEntropyLoss(),
         device=torch.device("cpu"),
     )
-    metrics = evaluator.evaluate()
     print(f"   ✓ 评估完成: loss={metrics['loss']:.4f}, accuracy={metrics['accuracy']:.4f}")
 
     # 5. Export: 保存模型
@@ -290,8 +296,15 @@ def test_full_pipeline_integration():
         print("\n6. [SERVE] 使用模型进行预测...")
         predictor = Predictor(model, device=torch.device("cpu"))
 
-        test_features = torch.randn(5, 10)
-        results = predictor.predict_batch(test_features.numpy().tolist())
+        # 创建测试数据加载器
+        test_dataset = TensorDataset(torch.randn(5, 10))
+
+        def test_collate_fn(batch):
+            X = torch.stack([x[0] for x in batch])
+            return {"_features": X}
+
+        test_loader = DataLoader(test_dataset, batch_size=5, collate_fn=test_collate_fn)
+        results = predictor.predict(test_loader)
 
         assert len(results) == 5
         assert "prediction" in results[0]
