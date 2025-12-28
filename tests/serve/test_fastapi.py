@@ -25,12 +25,25 @@ def fastapi_app(sample_model_path):
         model_name="mlp_classifier",
         model_params={"input_dim": 10, "hidden_dims": [64, 32], "num_classes": 2},
     )
-    # Trigger startup event to load model
-    from fastapi.testclient import TestClient
+    # Trigger startup event to load model synchronously
+    import asyncio
 
-    client = TestClient(app)
-    # Access root to trigger startup
-    client.get("/")
+    async def run_startup():
+        # Get all startup handlers
+        for handler in app.router.on_startup:
+            await handler()
+
+    # Run startup events
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If loop is already running, create a new one
+            loop = asyncio.new_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(run_startup())
     return app
 
 

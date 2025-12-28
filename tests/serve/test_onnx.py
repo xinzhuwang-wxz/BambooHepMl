@@ -26,14 +26,12 @@ def test_onnx_export_and_predict(temp_dir, sample_model, sample_features):
     """测试 ONNX 导出和推理。"""
     # 导出 ONNX
     onnx_path = temp_dir / "test_model.onnx"
-    dummy_input = torch.randn(1, 10)
+    dummy_input = {"features": torch.randn(1, 10)}
 
-    # Create a wrapper function for ONNX export
-    def forward_wrapper(features):
-        return sample_model({"features": features})
-
+    # Use model directly, not a wrapper function
+    sample_model.eval()
     torch.onnx.export(
-        forward_wrapper,
+        sample_model,
         dummy_input,
         str(onnx_path),
         input_names=["features"],
@@ -59,14 +57,12 @@ def test_onnx_batch_predict(temp_dir, sample_model, sample_features):
     """测试 ONNX 批量预测。"""
     # 导出 ONNX
     onnx_path = temp_dir / "test_model.onnx"
-    dummy_input = torch.randn(1, 10)
+    dummy_input = {"features": torch.randn(1, 10)}
 
-    # Create a wrapper function for ONNX export
-    def forward_wrapper(features):
-        return sample_model({"features": features})
-
+    # Use model directly, not a wrapper function
+    sample_model.eval()
     torch.onnx.export(
-        forward_wrapper,
+        sample_model,
         dummy_input,
         str(onnx_path),
         input_names=["features"],
@@ -88,14 +84,12 @@ def test_onnx_model_info(temp_dir, sample_model):
     """测试 ONNX 模型信息。"""
     # 导出 ONNX
     onnx_path = temp_dir / "test_model.onnx"
-    dummy_input = torch.randn(1, 10)
+    dummy_input = {"features": torch.randn(1, 10)}
 
-    # Create a wrapper function for ONNX export
-    def forward_wrapper(features):
-        return sample_model({"features": features})
-
+    # Use model directly, not a wrapper function
+    sample_model.eval()
     torch.onnx.export(
-        forward_wrapper,
+        sample_model,
         dummy_input,
         str(onnx_path),
         input_names=["features"],

@@ -132,19 +132,19 @@ class Clipper:
         if isinstance(data, ak.Array):
             # For jagged arrays, use ak operations directly
             # ak.clip doesn't exist, so we need to flatten, clip, and reconstruct
-            if data.ndim == 1:
-                # Event-level: flatten and clip
-                flat = ak.flatten(data, axis=None)
-                clipped_flat = np.clip(ak.to_numpy(flat), self.min_val, self.max_val)
-                # Reconstruct with original structure
-                counts = ak.num(data)
-                return ak.unflatten(ak.Array(clipped_flat), counts)
-            else:
+            # Check if it's a jagged array (variable-length) by checking the type
+            try:
+                # Try to get counts along axis=1 to determine if it's a jagged array
+                counts = ak.num(data, axis=1)
+                # If successful, it's a jagged array (object-level)
                 # Object-level jagged array: process each event
                 flat = ak.flatten(data, axis=None)
                 clipped_flat = np.clip(ak.to_numpy(flat), self.min_val, self.max_val)
-                counts = ak.num(data, axis=1)
                 return ak.unflatten(ak.Array(clipped_flat), counts)
+            except (ValueError, TypeError, Exception):
+                # If ak.num(data, axis=1) fails, it's likely a simple 1D event-level array
+                # Convert to numpy and clip directly
+                return np.clip(ak.to_numpy(data), self.min_val, self.max_val)
         else:
             return np.clip(data, self.min_val, self.max_val)
 

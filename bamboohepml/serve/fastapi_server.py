@@ -126,14 +126,26 @@ def create_app(
 
             # 创建预测器
             predictor = Predictor(model)
+            # Set model_info - handle both cases
+            if pipeline_config_path:
+                final_model_name = model_name or model_config.get("name", "unknown")
+                final_model_params = model_params or model_config.get("params", {})
+            else:
+                final_model_name = model_name or "unknown"
+                final_model_params = model_params or {}
             model_info = {
-                "model_name": model_name or model_config.get("name", "unknown"),
-                "model_params": model_params or model_config.get("params", {}),
+                "model_name": final_model_name,
+                "model_params": final_model_params,
             }
             logger.info("Model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
             # 不抛出异常，允许应用启动（用于健康检查）
+            predictor = None
+            model_info = {"error": str(e)}
 
     @app.get("/")
     async def health_check() -> HealthResponse:
