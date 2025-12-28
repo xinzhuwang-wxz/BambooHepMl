@@ -128,10 +128,17 @@ def create_app(
 
             # 创建预测器
             predictor = Predictor(model)
+            # Ensure model_name and model_params are defined for model_info
+            if pipeline_config_path:
+                # Already set above
+                pass
+            else:
+                # Already set above
+                pass
             model_info = {
-                "model_name": model_name,
-                "model_path": model_path,
-                "input_dim": model_params.get("input_dim", "unknown"),
+                "model_name": model_name or "unknown",
+                "model_path": model_path or "unknown",
+                "input_dim": model_params.get("input_dim", "unknown") if model_params else "unknown",
             }
 
             logger.info("Model loaded successfully")

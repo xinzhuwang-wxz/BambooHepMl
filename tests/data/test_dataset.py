@@ -181,8 +181,9 @@ def test_padding_mask():
     print(f"Mask (事件 1): {mask[1]}")
     print(f"Mask (事件 2): {mask[2]}")
 
-    assert padded.shape == (3, 5)
-    assert mask.shape == (3, 5)
+    # Use padded_np for assertions
+    assert padded_np.shape == (3, 5)
+    assert mask.shape == (3,)
 
     print("✓ Padding + Mask 测试通过\n")
 

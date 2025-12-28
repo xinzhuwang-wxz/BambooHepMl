@@ -82,7 +82,8 @@ def _pad(a, maxlen, value=0, dtype="float32"):
         if a.ndim == 1:
             a = ak.unflatten(a, 1)
         a = ak.fill_none(ak.pad_none(a, maxlen, clip=True), value)
-        return ak.values_astype(a, dtype)
+        # Convert to numpy array for consistent return type
+        return ak.to_numpy(ak.values_astype(a, dtype))
     else:
         x = (np.ones((len(a), maxlen)) * value).astype(dtype)
         for idx, s in enumerate(a):

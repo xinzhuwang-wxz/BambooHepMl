@@ -2,16 +2,23 @@
 ONNX 推理测试
 """
 
-import onnx
+import sys
+
 import pytest
-import torch
 
-try:
-    from bamboohepml.serve import ONNXPredictor
+# Skip ONNX tests on Python 3.8 due to onnxscript compatibility issues
+ONNX_AVAILABLE = sys.version_info >= (3, 9)
 
-    ONNX_AVAILABLE = True
-except ImportError:
-    ONNX_AVAILABLE = False
+if ONNX_AVAILABLE:
+    try:
+        import onnx
+        import torch
+
+        from bamboohepml.serve import ONNXPredictor
+
+        ONNX_AVAILABLE = True
+    except ImportError:
+        ONNX_AVAILABLE = False
 
 
 @pytest.mark.skipif(not ONNX_AVAILABLE, reason="onnxruntime not available")

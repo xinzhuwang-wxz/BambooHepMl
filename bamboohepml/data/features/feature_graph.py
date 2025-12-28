@@ -380,6 +380,8 @@ class FeatureGraph:
             if "expr" in feature_def:
                 expr = feature_def["expr"]
                 deps = expression_engine.get_dependencies(expr)
+                # 过滤：只保留在特征列表中的依赖（排除原始数据字段如 "Jet", "met"）
+                deps = {dep for dep in deps if dep in features}
                 dependencies.update(deps)
 
             # 从 source 提取依赖（如果是特征名）
