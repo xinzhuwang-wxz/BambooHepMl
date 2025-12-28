@@ -122,3 +122,8 @@ checkpoints/
 
 # Clean up
 .trash/
+
+#md (except README.md and docs/)
+*.md
+!README.md
+!docs/**/*.md
