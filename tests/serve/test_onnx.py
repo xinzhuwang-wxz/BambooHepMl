@@ -1,6 +1,7 @@
 """
 ONNX 推理测试
 """
+
 import onnx
 import pytest
 import torch

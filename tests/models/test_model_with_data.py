@@ -82,12 +82,14 @@ def create_test_config():
             "type": "simple",
             "value": [jet_theta_branch or "jet_theta"] if jet_theta_branch else ["jet_energy"],
         },
-        "observers": [
-            jet_energy_branch or "jet_energy",
-            jet_nparticles_branch or "jet_nparticles",
-        ]
-        if jet_energy_branch
-        else [],
+        "observers": (
+            [
+                jet_energy_branch or "jet_energy",
+                jet_nparticles_branch or "jet_nparticles",
+            ]
+            if jet_energy_branch
+            else []
+        ),
         "weights": None,
     }
 

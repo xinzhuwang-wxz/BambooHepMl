@@ -3,6 +3,7 @@
 
 提供模型注册和发现机制，支持动态注册模型。
 """
+
 from typing import Dict, Optional, Type
 
 from .base import BaseModel

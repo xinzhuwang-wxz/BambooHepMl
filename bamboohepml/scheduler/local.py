@@ -3,6 +3,7 @@
 
 直接在本地执行任务，不使用集群调度系统。
 """
+
 from typing import Any, Dict, Optional
 
 from ..config import logger

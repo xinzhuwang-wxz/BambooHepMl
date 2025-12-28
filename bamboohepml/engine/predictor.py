@@ -6,6 +6,7 @@ Predictor 类
 - 概率预测
 - 多任务预测
 """
+
 from typing import Any, Dict, List, Optional
 
 import torch

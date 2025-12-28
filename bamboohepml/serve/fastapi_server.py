@@ -3,6 +3,7 @@ FastAPI 推理服务
 
 提供 RESTful API 接口用于模型推理。
 """
+
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional
 

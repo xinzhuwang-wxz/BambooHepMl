@@ -3,6 +3,7 @@ BambooHepMl CLI
 
 使用 Typer 实现命令行接口，参考 Made-With-ML。
 """
+
 from pathlib import Path
 from typing import Optional
 

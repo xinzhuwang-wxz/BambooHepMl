@@ -1,6 +1,7 @@
 """
 FastAPI 服务测试
 """
+
 import pytest
 import torch
 from fastapi.testclient import TestClient

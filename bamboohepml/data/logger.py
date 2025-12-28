@@ -1,6 +1,7 @@
 """
 简化的日志模块（借鉴 weaver-core）
 """
+
 import logging
 import sys
 

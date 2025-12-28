@@ -194,9 +194,11 @@ def test_auto_standardization():
         },
         "labels": {
             "type": "simple",
-            "value": ["is_signal"]
-            if "is_signal" in DataSourceFactory.create(TEST_ROOT_FILE, treename=TREE_NAME).get_available_branches()
-            else ["jet_energy"],
+            "value": (
+                ["is_signal"]
+                if "is_signal" in DataSourceFactory.create(TEST_ROOT_FILE, treename=TREE_NAME).get_available_branches()
+                else ["jet_energy"]
+            ),
         },
         "observers": [],
         "weights": None,

@@ -3,6 +3,7 @@ ONNX 推理接口
 
 提供 ONNX 模型的推理功能。
 """
+
 from typing import Any, Dict, List, Optional
 
 import numpy as np
