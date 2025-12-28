@@ -151,7 +151,7 @@ def test_train_eval_pipeline():
         device=torch.device("cpu"),
     )
 
-    trainer.train(num_epochs=2)
+    trainer.fit(num_epochs=2)
     print("   ✓ 训练完成")
 
     # 4. 评估
@@ -265,7 +265,7 @@ def test_full_pipeline_integration():
         optimizer=torch.optim.Adam(model.parameters(), lr=0.001),
         device=torch.device("cpu"),
     )
-    trainer.train(num_epochs=2)
+    trainer.fit(num_epochs=2)
     print("   ✓ 训练完成")
 
     # 4. Eval: 评估模型
