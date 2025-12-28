@@ -181,6 +181,14 @@ class HEPDataset(IterableDataset):
             load_branches = required_fields
 
         # 2. 加载数据
+        # 同时确保加载标签字段（如果存在）
+        if load_branches:
+            load_branches = set(load_branches)
+        else:
+            load_branches = set()
+        if self.data_config.label_names:
+            load_branches |= set(self.data_config.label_names)
+
         table = self.data_source.load_branches(list(load_branches))
 
         # 3. 应用选择条件

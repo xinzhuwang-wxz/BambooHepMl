@@ -403,7 +403,6 @@ def test_feature_system_integration():
         data_source=source,
         data_config=data_config,
         feature_graph=graph,
-        expression_engine=engine,
         for_training=False,
     )
 
