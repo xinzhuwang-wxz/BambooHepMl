@@ -6,7 +6,7 @@ ONNX 推理接口
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -27,7 +27,7 @@ class ONNXPredictor:
     使用 ONNX Runtime 进行推理。
     """
 
-    def __init__(self, onnx_path: str, providers: list[str] | None = None):
+    def __init__(self, onnx_path: str, providers: Optional[List[str]] = None):
         """
         初始化 ONNX 预测器。
 
@@ -72,7 +72,7 @@ class ONNXPredictor:
         self,
         features: np.ndarray,
         return_probabilities: bool = False,
-    ) -> list[dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
         """
         预测。
 
@@ -124,9 +124,9 @@ class ONNXPredictor:
 
     def predict_batch(
         self,
-        features_list: list[list[float]],
+        features_list: List[List[float]],
         return_probabilities: bool = False,
-    ) -> list[dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
         """
         批量预测。
 
@@ -145,7 +145,7 @@ class ONNXPredictor:
         exp_x = np.exp(x - np.max(x))
         return exp_x / exp_x.sum()
 
-    def get_model_info(self) -> dict[str, Any]:
+    def get_model_info(self) -> Dict[str, Any]:
         """获取模型信息。"""
         input_info = self.session.get_inputs()[0]
         output_info = self.session.get_outputs()[0]

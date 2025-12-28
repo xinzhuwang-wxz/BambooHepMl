@@ -47,7 +47,7 @@ repos:
     hooks:
       - id: pyupgrade
         args: ["--py39-plus"]
-        exclude: ^bamboohepml/serve/fastapi_server\.py$
+        exclude: ^bamboohepml/serve/(fastapi_server|ray_serve|onnx_predictor)\.py$
 
   # YAML formatting
   - repo: https://github.com/pre-commit/mirrors-prettier

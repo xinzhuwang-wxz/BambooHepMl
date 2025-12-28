@@ -51,10 +51,10 @@ class HealthResponse(BaseModel):
 
 
 def create_app(
-    model_path: str | None = None,
-    pipeline_config_path: str | None = None,
-    model_name: str | None = None,
-    model_params: dict[str, Any] | None = None,
+    model_path: Optional[str] = None,
+    pipeline_config_path: Optional[str] = None,
+    model_name: Optional[str] = None,
+    model_params: Optional[Dict[str, Any]] = None,
 ) -> FastAPI:
     """
     创建 FastAPI 应用。
@@ -75,8 +75,8 @@ def create_app(
     )
 
     # 全局变量存储模型和预测器
-    predictor: Predictor | None = None
-    model_info: dict[str, Any] = {}
+    predictor: Optional[Predictor] = None
+    model_info: Dict[str, Any] = {}
 
     @app.on_event("startup")
     async def startup_event():
@@ -268,7 +268,7 @@ def create_app(
     return app
 
 
-def serve_fastapi(model_path: str, pipeline_config_path: str | None = None, host: str = "0.0.0.0", port: int = 8000, **kwargs):
+def serve_fastapi(model_path: str, pipeline_config_path: Optional[str] = None, host: str = "0.0.0.0", port: int = 8000, **kwargs):
     """
     启动 FastAPI 服务。
 
