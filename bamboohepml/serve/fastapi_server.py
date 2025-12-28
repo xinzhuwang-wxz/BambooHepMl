@@ -14,8 +14,8 @@ from pydantic import BaseModel, Field
 
 from ..config import logger
 from ..engine import Predictor
+from ..metadata import load_model_metadata
 from ..models import get_model
-from ..utils.metadata import load_model_metadata
 
 
 # 请求模型

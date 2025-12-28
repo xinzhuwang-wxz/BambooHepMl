@@ -232,9 +232,21 @@ def test_dataset_basic():
     table = create_mock_data_source()
     source = MockDataSource(table)
 
+    # 创建最小的 FeatureGraph（至少需要一个特征）
+    engine = ExpressionEngine()
+    features = {
+        "met": {
+            "expr": "met",
+            "type": "event",
+            "dtype": "float32",
+        },
+    }
+    feature_graph = FeatureGraph.from_feature_defs(features, engine, enable_cache=False)
+
     dataset = HEPDataset(
         data_source=source,
         data_config=data_config,
+        feature_graph=feature_graph,
         for_training=False,
         shuffle=False,
     )
@@ -297,9 +309,25 @@ def test_transformer_format():
     table = create_mock_data_source()
     source = MockDataSource(table)
 
+    # 创建最小的 FeatureGraph
+    engine = ExpressionEngine()
+    features = {
+        "jet_pt": {
+            "expr": "Jet.pt",
+            "type": "object",
+            "dtype": "float32",
+            "padding": {
+                "max_length": 10,
+                "mode": "constant",
+            },
+        },
+    }
+    feature_graph = FeatureGraph.from_feature_defs(features, engine, enable_cache=False)
+
     transformer_dataset = TransformerDataset(
         data_source=source,
         data_config=data_config,
+        feature_graph=feature_graph,
         for_training=False,
         shuffle=False,
     )

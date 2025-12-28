@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ..config import logger
+from .config import logger
 
 __all__ = ["save_model_metadata", "load_model_metadata"]
 

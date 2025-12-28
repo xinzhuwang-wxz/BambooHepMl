@@ -6,19 +6,18 @@ Export/Serve 解耦测试
 - Serve 只依赖 metadata + ONNX
 """
 
-import json
 import sys
 import tempfile
 from pathlib import Path
 
-# 添加项目根目录到路径
+import torch
+
+# 添加项目根目录到路径（必须在导入项目模块之前）
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-import torch
-
-from bamboohepml.models import get_model
-from bamboohepml.utils.metadata import load_model_metadata, save_model_metadata
+from bamboohepml.metadata import load_model_metadata, save_model_metadata  # noqa: E402
+from bamboohepml.models import get_model  # noqa: E402
 
 
 def test_export_without_dataset():
@@ -156,7 +155,7 @@ def test_serve_without_pipeline():
         output = loaded_model({"features": dummy_input})
         assert output.shape == (1, 2), f"Expected output shape (1, 2), got {output.shape}"
 
-        print(f"✓ 从 metadata 重建模型成功")
+        print("✓ 从 metadata 重建模型成功")
         print(f"✓ 模型推理成功: output shape={output.shape}")
         print("✓ Serve 解耦测试通过\n")
 

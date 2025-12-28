@@ -36,6 +36,8 @@ class FeatureNode:
     dependencies: list[str] = field(default_factory=list)
     dependents: list[str] = field(default_factory=list)
     computation_time: float = 0.0
+    computed: bool = False
+    cached_value: Any = None
 
 
 class FeatureGraph:

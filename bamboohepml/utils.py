@@ -5,7 +5,6 @@
 - 随机种子设置
 - 字典 I/O
 - 数据预处理工具
-- 模型元数据管理
 """
 
 import json
@@ -16,7 +15,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from ..config import mlflow
+from .config import mlflow
 
 # 可选依赖：Ray
 try:
@@ -29,11 +28,9 @@ except ImportError:
     RAY_AVAILABLE = False
 
     def get_device():
+        """当 Ray 不可用时，返回 CPU 设备。"""
         return torch.device("cpu")
 
-
-# 从 metadata 模块导入元数据相关函数
-from .metadata import load_model_metadata, save_model_metadata
 
 __all__ = [
     "set_seeds",
@@ -43,23 +40,15 @@ __all__ = [
     "collate_fn",
     "get_run_id",
     "DictDataset",
-    "save_model_metadata",
-    "load_model_metadata",
 ]
 
 
 def set_seeds(seed: int = 42):
-    """设置随机种子以确保可重复性。
-
-    Args:
-        seed (int): 随机种子值。默认为 42。
-    """
-    np.random.seed(seed)
+    """设置随机种子以确保可复现性。"""
     random.seed(seed)
+    np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    eval("setattr(torch.backends.cudnn, 'deterministic', True)")
-    eval("setattr(torch.backends.cudnn, 'benchmark', False)")
+    torch.cuda.manual_seed_all(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
@@ -67,10 +56,10 @@ def load_dict(path: str) -> dict:
     """从 JSON 文件加载字典。
 
     Args:
-        path (str): 文件路径。
+        path: 文件路径
 
     Returns:
-        Dict: 加载的 JSON 数据。
+        Dict: 加载的 JSON 数据
     """
     with open(path) as fp:
         d = json.load(fp)
@@ -78,13 +67,14 @@ def load_dict(path: str) -> dict:
 
 
 def save_dict(d: dict, path: str, cls: Any = None, sortkeys: bool = False) -> None:
-    """将字典保存到指定位置。
+    """
+    将字典保存到指定位置。
 
     Args:
-        d (Dict): 要保存的数据。
-        path (str): 保存位置。
-        cls (optional): 用于编码字典数据的编码器。默认为 None。
-        sortkeys (bool, optional): 是否按字母顺序排序键。默认为 False。
+        d: 要保存的数据
+        path: 保存位置
+        cls: 用于编码字典数据的编码器。默认为 None
+        sortkeys: 是否按字母顺序排序键。默认为 False
     """
     directory = os.path.dirname(path)
     if directory and not os.path.exists(directory):
@@ -95,14 +85,15 @@ def save_dict(d: dict, path: str, cls: Any = None, sortkeys: bool = False) -> No
 
 
 def pad_array(arr: np.ndarray, dtype=np.int32) -> np.ndarray:
-    """将 2D 数组用零填充，直到所有行的长度与最长行相同。
+    """
+    将 2D 数组用零填充，直到所有行的长度与最长行相同。
 
     Args:
-        arr (np.ndarray): 输入数组。
-        dtype: 数据类型。默认为 np.int32。
+        arr: 输入数组
+        dtype: 数据类型。默认为 np.int32
 
     Returns:
-        np.ndarray: 零填充后的数组。
+        零填充后的数组
     """
     max_len = max(len(row) for row in arr)
     padded_arr = np.zeros((arr.shape[0], max_len), dtype=dtype)
@@ -112,13 +103,14 @@ def pad_array(arr: np.ndarray, dtype=np.int32) -> np.ndarray:
 
 
 def collate_fn(batch: dict[str, np.ndarray]) -> dict[str, torch.Tensor]:
-    """将一批 numpy 数组转换为张量（带适当的填充）。
+    """
+    将一批 numpy 数组转换为张量（带适当的填充）。
 
     Args:
-        batch (Dict[str, np.ndarray]): 输入批次，作为 numpy 数组字典。
+        batch: 输入批次，作为 numpy 数组字典
 
     Returns:
-        Dict[str, torch.Tensor]: 输出批次，作为张量字典。
+        输出批次，作为张量字典
     """
     # 对于 HEP 数据，可能需要不同的填充策略
     # 这里提供一个通用版本，具体任务可以覆盖
@@ -134,14 +126,15 @@ def collate_fn(batch: dict[str, np.ndarray]) -> dict[str, torch.Tensor]:
 
 
 def get_run_id(experiment_name: str, trial_id: str) -> str:
-    """获取特定 Ray trial ID 的 MLflow run ID。
+    """
+    获取特定 Ray trial ID 的 MLflow run ID。
 
     Args:
-        experiment_name (str): 实验名称。
-        trial_id (str): trial ID。
+        experiment_name: 实验名称
+        trial_id: trial ID
 
     Returns:
-        str: trial 的 run ID。
+        trial 的 run ID
     """
     trial_name = f"TorchTrainer_{trial_id}"
     run = mlflow.search_runs(

@@ -9,18 +9,16 @@
 3. 端到端流程的流通性
 """
 
-import json
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
 from bamboohepml.engine import Evaluator, Predictor, Trainer
+from bamboohepml.metadata import load_model_metadata, save_model_metadata
 from bamboohepml.models import get_model
 from bamboohepml.tasks import export_task
-from bamboohepml.utils.metadata import load_model_metadata, save_model_metadata
 
 
 def _create_dummy_data(num_samples: int = 100, input_dim: int = 10):
@@ -150,7 +148,7 @@ def test_full_pipeline_flow():
         # ========== 7. EXPORT: 导出 ONNX 模型 ==========
         print("\n7. [EXPORT] 导出 ONNX 模型...")
         onnx_path = tmpdir / "model.onnx"
-        export_result = export_task(
+        export_task(
             model_path=str(model_path),
             output_path=str(onnx_path),
             metadata_path=str(metadata_path),
@@ -251,7 +249,7 @@ def test_metadata_driven_export():
         # 3. 仅使用模型和 metadata 导出 ONNX（不依赖 Dataset 或 Pipeline）
         print("\n2. 仅使用模型和 metadata 导出 ONNX...")
         onnx_path = tmpdir / "model.onnx"
-        export_result = export_task(
+        export_task(
             model_path=str(model_path),
             output_path=str(onnx_path),
             metadata_path=str(metadata_path),

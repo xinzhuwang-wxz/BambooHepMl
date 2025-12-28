@@ -320,8 +320,9 @@ def test_feature_processor():
     raw_value = engine.evaluate(feature_def["expr"], context)
     print(f"原始值: {raw_value}")
 
-    # 处理
-    processed_value = processor.process(raw_value, fit_normalizer=True)
+    # 处理（先拟合再处理）
+    processor.fit(raw_value)
+    processed_value = processor.process(raw_value)
     print(f"处理后: {processed_value}")
     print(f"  标准化中心: {processor.normalizer.center}")
     print(f"  标准化缩放: {processor.normalizer.scale}")

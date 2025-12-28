@@ -20,10 +20,10 @@ import torch
 
 from ..config import EFS_DIR, logger
 from ..engine import Trainer
+from ..metadata import save_model_metadata
 from ..models import get_model
 from ..pipeline import PipelineOrchestrator
 from ..utils import collate_fn, set_seeds
-from ..utils.metadata import save_model_metadata
 
 # Ray imports (optional)
 try:
@@ -387,7 +387,7 @@ class RayBackend(TrainingBackend):
                     orchestrator.save_pipeline_state(output_dir / "pipeline_state.json")
 
                 # 保存 Metadata
-                from ..utils.metadata import save_model_metadata
+                from ..metadata import save_model_metadata
 
                 feature_graph = orchestrator.feature_graph
                 feature_spec = feature_graph.output_spec() if feature_graph else {}
@@ -481,7 +481,7 @@ def train_task(
         orchestrator.save_pipeline_state(output_path / "pipeline_state.json")
 
         # 保存 Metadata (包含 FeatureGraph 状态)
-        from ..utils.metadata import save_model_metadata
+        from ..metadata import save_model_metadata
 
         feature_graph = orchestrator.get_feature_graph()
         feature_spec = feature_graph.output_spec() if feature_graph else {}

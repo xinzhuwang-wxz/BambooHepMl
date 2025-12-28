@@ -11,14 +11,12 @@
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import onnx
 import torch
 
 from ..config import logger
+from ..metadata import load_model_metadata
 from ..models import get_model
-from ..pipeline.orchestrator import PipelineOrchestrator
-from ..utils import load_model_metadata, save_dict
 
 
 def _build_dummy_input_from_spec(feature_spec: dict[str, Any], input_key: str, batch_size: int = 1) -> torch.Tensor:
@@ -213,7 +211,7 @@ def export_task(
             ort_session = ort.InferenceSession(str(output_path))
 
             # 运行推理
-            ort_inputs = {ort_session.get_inputs()[0].name: dummy_input.numpy()}
+            ort_inputs = {ort_session.get_inputs()[0].name: dummy_input.detach().cpu().numpy()}
             ort_outs = ort_session.run(None, ort_inputs)
 
             logger.info(f"ONNX model test passed! Output shape: {ort_outs[0].shape}")
