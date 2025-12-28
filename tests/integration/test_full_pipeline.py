@@ -131,7 +131,10 @@ def test_train_eval_pipeline():
 
     def collate_fn(batch):
         X, y = zip(*batch)
-        return {"features": torch.stack(X)}, torch.stack(y)
+        return {
+            "_features": torch.stack(X),
+            "_label_": torch.stack(y),
+        }
 
     train_loader = DataLoader(train_dataset, batch_size=16, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=16, collate_fn=collate_fn)
@@ -185,7 +188,10 @@ def test_export_predict_pipeline():
 
     def collate_fn(batch):
         X, y = zip(*batch)
-        return {"features": torch.stack(X)}, torch.stack(y)
+        return {
+            "_features": torch.stack(X),
+            "_label_": torch.stack(y),
+        }
 
     train_loader = DataLoader(train_dataset, batch_size=16, collate_fn=collate_fn)
 
@@ -235,7 +241,10 @@ def test_full_pipeline_integration():
 
     def collate_fn(batch):
         X, y = zip(*batch)
-        return {"features": torch.stack(X)}, torch.stack(y)
+        return {
+            "_features": torch.stack(X),
+            "_label_": torch.stack(y),
+        }
 
     train_loader = DataLoader(train_dataset, batch_size=16, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=16, collate_fn=collate_fn)

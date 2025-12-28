@@ -145,10 +145,17 @@ class Trainer:
                 callback.on_batch_begin(batch_idx, {"batch": batch_idx})
 
             # 准备输入
-            inputs = batch[self.input_key].to(self.device)
-            labels = batch.get("_label_", None)
-            if labels is not None:
-                labels = labels.to(self.device)
+            if isinstance(batch, dict):
+                inputs = batch[self.input_key].to(self.device)
+                labels = batch.get("_label_", None)
+                if labels is not None:
+                    labels = labels.to(self.device)
+            else:
+                # 兼容元组格式 (batch_dict, labels)
+                batch_dict, labels = batch
+                inputs = batch_dict[self.input_key].to(self.device)
+                if labels is not None:
+                    labels = labels.to(self.device)
 
             # 前向传播
             self.optimizer.zero_grad()
