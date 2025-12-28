@@ -27,11 +27,25 @@ if ONNX_AVAILABLE:
 def onnx_model_path(temp_dir, sample_model):
     """创建并导出 ONNX 模型。"""
     onnx_path = temp_dir / "test_model.onnx"
-    dummy_input = {"features": torch.randn(1, 10)}
 
-    sample_model.eval()
+    # 创建包装类，将 tensor 输入转换为字典
+    class ModelWrapper(torch.nn.Module):
+        def __init__(self, model):
+            super().__init__()
+            self.model = model
+
+        def forward(self, features):
+            return self.model({"features": features})
+
+    wrapped_model = ModelWrapper(sample_model)
+    wrapped_model.eval()
+
+    # 使用 tensor 作为输入（而不是字典）
+    dummy_input = torch.randn(1, 10)
+
+    # 使用包装模型导出
     torch.onnx.export(
-        sample_model,
+        wrapped_model,
         dummy_input,
         str(onnx_path),
         input_names=["features"],
