@@ -250,9 +250,7 @@ class HEPDataset(IterableDataset):
         # 6. 计算重加权索引
         if self.reweight and self.data_config.weight_name is not None:
             weights = _build_weights(table, self.data_config)
-            indices = _get_reweight_indices(
-                weights, up_sample=self.up_sample, weight_scale=self.weight_scale, max_resample=self.max_resample
-            )
+            indices = _get_reweight_indices(weights, up_sample=self.up_sample, weight_scale=self.weight_scale, max_resample=self.max_resample)
         else:
             indices = np.arange(len(table[self.data_config.label_names[0]]))
 

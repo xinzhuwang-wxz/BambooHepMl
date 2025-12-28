@@ -29,9 +29,7 @@ from bamboohepml.data import DataConfig, DataSourceFactory, HEPDataset  # noqa: 
 from bamboohepml.models import get_model  # noqa: E402
 
 # 测试文件路径
-TEST_ROOT_FILE = (
-    "/Users/physicsboy/Desktop/cepc_hss_scripts/Analysis/sample/tagging/input/TDR/train/Higgs/ss/merge_ss_0006.root"
-)
+TEST_ROOT_FILE = "/Users/physicsboy/Desktop/cepc_hss_scripts/Analysis/sample/tagging/input/TDR/train/Higgs/ss/merge_ss_0006.root"
 TREE_NAME = "tree"
 
 
@@ -176,9 +174,7 @@ def test_classification():
                 input_dim = input_tensor.shape[1]
             else:
                 # 如果是 3D (batch, features, length)，展平
-                input_dim = (
-                    input_tensor.shape[1] * input_tensor.shape[2] if len(input_tensor.shape) == 3 else input_tensor.shape[1]
-                )
+                input_dim = input_tensor.shape[1] * input_tensor.shape[2] if len(input_tensor.shape) == 3 else input_tensor.shape[1]
         else:
             input_dim = 1
 

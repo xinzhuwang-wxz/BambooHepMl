@@ -50,13 +50,7 @@ class BaseScheduler(ABC):
 
     @abstractmethod
     def submit_export(
-        self,
-        pipeline_config_path: str,
-        model_path: str,
-        output_path: str,
-        input_shape: Optional[tuple] = None,
-        opset_version: int = 11,
-        **kwargs
+        self, pipeline_config_path: str, model_path: str, output_path: str, input_shape: Optional[tuple] = None, opset_version: int = 11, **kwargs
     ) -> Any:
         """提交导出任务。"""
         pass

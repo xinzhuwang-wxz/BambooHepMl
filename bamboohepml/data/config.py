@@ -134,9 +134,7 @@ class DataConfig(object):
                     }
 
                     if v[0] in self.preprocess_params and params != self.preprocess_params[v[0]]:
-                        raise RuntimeError(
-                            "变量 %s 的信息不兼容，已有: \n  %s\n现在得到:\n  %s" % (v[0], str(self.preprocess_params[v[0]]), str(params))
-                        )
+                        raise RuntimeError("变量 %s 的信息不兼容，已有: \n  %s\n现在得到:\n  %s" % (v[0], str(self.preprocess_params[v[0]]), str(params)))
 
                     if k.endswith("_mask") and params["pad_mode"] != "constant":
                         raise RuntimeError("掩码输入 `%s` 的 `pad_mode` 必须设置为 `constant`" % k)

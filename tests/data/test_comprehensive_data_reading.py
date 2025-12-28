@@ -33,9 +33,7 @@ from torch.utils.data import DataLoader  # noqa: E402
 from bamboohepml.data import DataConfig, DataSourceFactory, HEPDataset  # noqa: E402
 
 # 测试文件路径
-TEST_ROOT_FILE = (
-    "/Users/physicsboy/Desktop/cepc_hss_scripts/Analysis/sample/tagging/input/TDR/train/Higgs/ss/merge_ss_0006.root"
-)
+TEST_ROOT_FILE = "/Users/physicsboy/Desktop/cepc_hss_scripts/Analysis/sample/tagging/input/TDR/train/Higgs/ss/merge_ss_0006.root"
 TREE_NAME = "tree"
 
 
@@ -105,24 +103,18 @@ def test_different_types():
     test_branches = []
 
     # double 类型（event-level）
-    double_branches = [
-        b for b in branches if "jet_energy" in b.lower() or "jet_theta" in b.lower() or "jet_nparticles" in b.lower()
-    ]
+    double_branches = [b for b in branches if "jet_energy" in b.lower() or "jet_theta" in b.lower() or "jet_nparticles" in b.lower()]
     if double_branches:
         test_branches.extend(double_branches[:3])
 
     # vector<float> 类型（object-level）
-    vector_float_branches = [
-        b for b in branches if "part_energy" in b.lower() or "part_px" in b.lower() or "part_py" in b.lower()
-    ]
+    vector_float_branches = [b for b in branches if "part_energy" in b.lower() or "part_px" in b.lower() or "part_py" in b.lower()]
     if vector_float_branches:
         test_branches.extend(vector_float_branches[:3])
 
     # vector<bool> 类型
     vector_bool_branches = [
-        b
-        for b in branches
-        if "part_is" in b.lower() and ("electron" in b.lower() or "muon" in b.lower() or "photon" in b.lower())
+        b for b in branches if "part_is" in b.lower() and ("electron" in b.lower() or "muon" in b.lower() or "photon" in b.lower())
     ]
     if vector_bool_branches:
         test_branches.extend(vector_bool_branches[:3])

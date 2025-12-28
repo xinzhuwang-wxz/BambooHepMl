@@ -82,9 +82,7 @@ class OperatorRegistry:
         self.register("min", lambda x: ak.min(x, axis=-1) if isinstance(x, ak.Array) else np.min(x))
         self.register("std", lambda x: ak.std(x, axis=-1) if isinstance(x, ak.Array) else np.std(x))
         self.register("len", lambda x: ak.num(x) if isinstance(x, ak.Array) else len(x))
-        self.register(
-            "count", lambda x, condition: ak.sum(condition, axis=-1) if isinstance(x, ak.Array) else np.sum(condition)
-        )
+        self.register("count", lambda x, condition: ak.sum(condition, axis=-1) if isinstance(x, ak.Array) else np.sum(condition))
 
         # 数学函数
         self.register("log", lambda x: np.log(x) if isinstance(x, np.ndarray) else ak.log(x))

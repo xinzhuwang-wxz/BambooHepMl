@@ -228,9 +228,7 @@ def create_app(
     return app
 
 
-def serve_fastapi(
-    model_path: str, pipeline_config_path: Optional[str] = None, host: str = "0.0.0.0", port: int = 8000, **kwargs
-):
+def serve_fastapi(model_path: str, pipeline_config_path: Optional[str] = None, host: str = "0.0.0.0", port: int = 8000, **kwargs):
     """
     启动 FastAPI 服务。
 

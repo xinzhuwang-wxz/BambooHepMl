@@ -326,9 +326,7 @@ def _get_variable_names(expr, exclude=["awkward", "ak", "np", "numpy", "math", "
     import ast
 
     root = ast.parse(expr)
-    return sorted(
-        {node.id for node in ast.walk(root) if isinstance(node, ast.Name) and not node.id.startswith("_")} - set(exclude)
-    )
+    return sorted({node.id for node in ast.walk(root) if isinstance(node, ast.Name) and not node.id.startswith("_")} - set(exclude))
 
 
 def _eval_expr(expr, table):

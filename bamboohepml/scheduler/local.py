@@ -66,13 +66,7 @@ class LocalScheduler(BaseScheduler):
         )
 
     def submit_export(
-        self,
-        pipeline_config_path: str,
-        model_path: str,
-        output_path: str,
-        input_shape: Optional[tuple] = None,
-        opset_version: int = 11,
-        **kwargs
+        self, pipeline_config_path: str, model_path: str, output_path: str, input_shape: Optional[tuple] = None, opset_version: int = 11, **kwargs
     ) -> Dict[str, Any]:
         """提交导出任务（本地执行）。"""
         logger.info("Using Local Scheduler for export")

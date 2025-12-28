@@ -136,12 +136,7 @@ def _build_weights(table, data_config, reweight_hists=None):
         x_bins, y_bins = data_config.reweight_bins
         rwgt_sel = None
         if data_config.reweight_discard_under_overflow:
-            rwgt_sel = (
-                (table[x_var] >= min(x_bins))
-                & (table[x_var] <= max(x_bins))
-                & (table[y_var] >= min(y_bins))
-                & (table[y_var] <= max(y_bins))
-            )
+            rwgt_sel = (table[x_var] >= min(x_bins)) & (table[x_var] <= max(x_bins)) & (table[y_var] >= min(y_bins)) & (table[y_var] <= max(y_bins))
         wgt = np.zeros(len(table), dtype="float32")
         sum_evts = 0
         if reweight_hists is None:
@@ -414,9 +409,7 @@ class WeightMaker(object):
                 nonzero_vals = hist[hist > threshold_]
                 min_val, med_val = np.min(nonzero_vals), np.median(hist)
                 ref_val = np.percentile(nonzero_vals, self._data_config.reweight_threshold)
-                _logger.debug(
-                    "label:%s, median=%f, min=%f, ref=%f, ref/min=%f" % (label, med_val, min_val, ref_val, ref_val / min_val)
-                )
+                _logger.debug("label:%s, median=%f, min=%f, ref=%f, ref/min=%f" % (label, med_val, min_val, ref_val, ref_val / min_val))
                 wgt = np.clip(np.nan_to_num(ref_val / hist, posinf=0), 0, 1)
                 result[label] = wgt
                 class_events[label] = np.sum(raw_hists[label] * wgt) / classwgt

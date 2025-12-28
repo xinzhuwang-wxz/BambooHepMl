@@ -27,9 +27,7 @@ from bamboohepml.data.preprocess import AutoStandardizer  # noqa: E402
 from bamboohepml.data.tools import _clip, _pad, _repeat_pad  # noqa: E402
 
 # 测试文件路径
-TEST_ROOT_FILE = (
-    "/Users/physicsboy/Desktop/cepc_hss_scripts/Analysis/sample/tagging/input/TDR/train/Higgs/ss/merge_ss_0006.root"
-)
+TEST_ROOT_FILE = "/Users/physicsboy/Desktop/cepc_hss_scripts/Analysis/sample/tagging/input/TDR/train/Higgs/ss/merge_ss_0006.root"
 TREE_NAME = "tree"
 
 

@@ -29,7 +29,13 @@ jobs:
           flake8 bamboohepml --count --exit-zero --max-complexity=10 --max-line-length=150 --statistics
       
       - name: Run black check
-        run: black --check bamboohepml tests
+        run: |
+          if ! black --check bamboohepml tests; then
+            echo "Code formatting issues detected. Formatting files..."
+            black bamboohepml tests
+            echo "Files have been formatted. Please commit and push the changes."
+            exit 1
+          fi
       
       - name: Run isort check
         run: isort --check-only bamboohepml tests
