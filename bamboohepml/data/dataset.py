@@ -188,9 +188,9 @@ class HEPDataset(IterableDataset):
         if load_branches:
             load_branches = {b for b in load_branches if b not in aux_branches}
 
-        # 如果 load_branches 为空，从 FeatureGraph 提取需要的数据源字段
-        if not load_branches and self.feature_graph.expression_engine is not None:
-            required_fields = set()
+        # 2. 从 FeatureGraph 提取需要的数据源字段（始终执行，因为 FeatureGraph 是唯一特征源）
+        feature_graph_fields = set()
+        if self.feature_graph.expression_engine is not None:
             for node in self.feature_graph.nodes.values():
                 feature_def = node.feature_def
                 # 从 expr 提取依赖
@@ -201,23 +201,24 @@ class HEPDataset(IterableDataset):
                         # 只保留不在特征图中的依赖（即原始数据字段）
                         for dep in deps:
                             if dep not in self.feature_graph.nodes:
-                                required_fields.add(dep)
+                                feature_graph_fields.add(dep)
                     except Exception:
                         pass
                 # 从 source 提取
                 source = feature_def.get("source")
                 if source and source not in self.feature_graph.nodes:
-                    required_fields.add(source)
+                    feature_graph_fields.add(source)
 
-            load_branches = required_fields
-
-        # 2. 确保 load_branches 是 set 类型
+        # 3. 确保 load_branches 是 set 类型并合并 FeatureGraph 字段
         if isinstance(load_branches, set):
             load_branches = load_branches.copy()
         else:
             load_branches = set(load_branches) if load_branches else set()
 
-        # 3. 添加标签字段的原始数据源（如果存在）
+        # 合并从 FeatureGraph 提取的字段
+        load_branches |= feature_graph_fields
+
+        # 4. 添加标签字段的原始数据源（如果存在）
         # label_value 中的字段（如 is_signal）是原始字段，需要被加载
         if self.data_config.label_value:
             if isinstance(self.data_config.label_value, list):
