@@ -4,6 +4,8 @@
 提供模型注册和发现机制，支持动态注册模型。
 """
 
+from __future__ import annotations
+
 from .base import BaseModel
 
 
