@@ -1,6 +1,6 @@
 # Black formatting
 [tool.black]
-line-length = 127
+line-length = 150
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -21,7 +21,7 @@ exclude = '''
 # iSort
 [tool.isort]
 profile = "black"
-line_length = 127
+line_length = 150
 multi_line_output = 3
 include_trailing_comma = true
 virtual_env = "venv"
@@ -32,7 +32,7 @@ ignore = ["E501", "W503", "E226"]
 # E501: Line too long
 # W503: Line break occurred before binary operator
 # E226: Missing white space around arithmetic operator
-max-line-length = 127
+max-line-length = 150
 
 [tool.pyupgrade]
 py39plus = true
