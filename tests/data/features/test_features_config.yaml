@@ -1,0 +1,192 @@
+# 特征工程测试配置
+
+# 特征定义
+features:
+  # Event-level 特征
+  event_level:
+    # 基础特征（直接使用原始分支）
+    - name: "met"
+      source: "met"
+      type: "event"
+      dtype: "float32"
+    
+    # 表达式特征
+    - name: "met_log"
+      source: "met"
+      type: "event"
+      dtype: "float32"
+      expr: "log1p(met)"
+      normalize:
+        method: "auto"
+      clip:
+        min: 0.0
+        max: 10.0
+    
+    # 聚合特征（从 object-level 聚合到 event-level）
+    - name: "nJets"
+      source: "Jet"
+      type: "event"
+      dtype: "int32"
+      expr: "len(Jet)"
+    
+    - name: "ht"
+      source: "Jet"
+      type: "event"
+      dtype: "float32"
+      expr: "sum(Jet.pt)"
+      normalize:
+        method: "auto"
+      clip:
+        min: 0.0
+        max: 5000.0
+    
+    - name: "jet_pt_mean"
+      source: "Jet"
+      type: "event"
+      dtype: "float32"
+      expr: "mean(Jet.pt)"
+      normalize:
+        method: "auto"
+    
+    - name: "jet_pt_max"
+      source: "Jet"
+      type: "event"
+      dtype: "float32"
+      expr: "max(Jet.pt)"
+      normalize:
+        method: "auto"
+    
+    # 复杂表达式特征
+    - name: "met_ht_ratio"
+      source: ["met", "ht"]
+      type: "event"
+      dtype: "float32"
+      expr: "met / (ht + 1e-6)"
+      normalize:
+        method: "auto"
+      clip:
+        min: 0.0
+        max: 1.0
+      dependencies:
+        - "met"
+        - "ht"
+  
+  # Object-level 特征（用于序列输入）
+  object_level:
+    # Jet 特征
+    - name: "jet_pt"
+      source: "Jet"
+      type: "object"
+      dtype: "float32"
+      expr: "Jet.pt"
+      normalize:
+        method: "auto"
+      clip:
+        min: 0.0
+        max: 1000.0
+      padding:
+        max_length: 128
+        mode: "constant"
+        value: 0.0
+    
+    - name: "jet_eta"
+      source: "Jet"
+      type: "object"
+      dtype: "float32"
+      expr: "Jet.eta"
+      normalize:
+        method: "auto"
+      clip:
+        min: -5.0
+        max: 5.0
+      padding:
+        max_length: 128
+        mode: "constant"
+        value: 0.0
+    
+    - name: "jet_phi"
+      source: "Jet"
+      type: "object"
+      dtype: "float32"
+      expr: "Jet.phi"
+      normalize:
+        method: "manual"
+        center: 0.0
+        scale: 0.3183098861837907  # 1/π
+      padding:
+        max_length: 128
+        mode: "constant"
+        value: 0.0
+    
+    - name: "jet_mass"
+      source: "Jet"
+      type: "object"
+      dtype: "float32"
+      expr: "Jet.mass"
+      normalize:
+        method: "auto"
+      clip:
+        min: 0.0
+        max: 500.0
+      padding:
+        max_length: 128
+        mode: "constant"
+        value: 0.0
+    
+    # 派生特征
+    - name: "jet_pt_log"
+      source: "Jet"
+      type: "object"
+      dtype: "float32"
+      expr: "log1p(Jet.pt)"
+      normalize:
+        method: "auto"
+      padding:
+        max_length: 128
+        mode: "constant"
+        value: 0.0
+      dependencies:
+        - "jet_pt"
+    
+    - name: "jet_energy"
+      source: "Jet"
+      type: "object"
+      dtype: "float32"
+      expr: "sqrt(Jet.pt**2 + Jet.mass**2)"
+      normalize:
+        method: "auto"
+      padding:
+        max_length: 128
+        mode: "constant"
+        value: 0.0
+      dependencies:
+        - "jet_pt"
+        - "jet_mass"
+    
+    # 相对特征（相对于 event-level）
+    - name: "jet_pt_relative"
+      source: ["Jet", "ht"]
+      type: "object"
+      dtype: "float32"
+      expr: "Jet.pt / (ht + 1e-6)"
+      normalize:
+        method: "auto"
+      padding:
+        max_length: 128
+        mode: "constant"
+        value: 0.0
+      dependencies:
+        - "jet_pt"
+        - "ht"
+    
+    # Mask 特征
+    - name: "jet_mask"
+      source: "Jet"
+      type: "object"
+      dtype: "bool"
+      expr: "Jet.pt > 20"
+      padding:
+        max_length: 128
+        mode: "constant"
+        value: False
+

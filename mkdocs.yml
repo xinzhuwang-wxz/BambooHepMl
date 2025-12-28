@@ -1,0 +1,30 @@
+site_name: BambooHepMl
+site_url: https://github.com/xinzhuwang-wxz/BambooHepMl
+repo_url: https://github.com/xinzhuwang-wxz/BambooHepMl
+nav:
+  - Home: index.md
+  - API Reference:
+    - Data Module: bamboohepml/data.md
+    - Models Module: bamboohepml/models.md
+    - Engine Module: bamboohepml/engine.md
+    - Tasks Module: bamboohepml/tasks.md
+    - Serve Module: bamboohepml/serve.md
+    - Scheduler Module: bamboohepml/scheduler.md
+    - CLI Module: bamboohepml/cli.md
+theme:
+  name: readthedocs
+  highlightjs: true
+plugins:
+  - search
+  - autorefs:
+      link_titles: auto
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [bamboohepml]
+          options:
+            docstring_style: google
+            show_source: true
+watch:
+  - .  # reload docs for any file changes

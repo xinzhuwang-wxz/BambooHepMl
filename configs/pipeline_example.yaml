@@ -1,0 +1,43 @@
+# Pipeline 配置示例
+# 统一入口，协调整个 ML pipeline
+
+# 数据配置
+data:
+  # 方式 1: 指定 DataConfig YAML 文件路径
+  config_path: "configs/data_example.yaml"
+  
+  # 方式 2: 直接指定数据源（如果 config_path 未指定，将使用这些参数）
+  source_path: "/path/to/data/*.root"
+  treename: "tree"
+  load_range: null  # 可选: (0, 0.1) 表示只加载前 10%
+
+# 特征配置（可选）
+features:
+  config_path: "configs/features_example.yaml"
+
+# 模型配置
+model:
+  name: "mlp_classifier"  # 模型名称（从 registry 获取）
+  params:
+    task_type: "classification"
+    input_dim: 128  # 如果为 None，将从数据中推断
+    hidden_dims: [64, 32]
+    num_classes: 2
+    dropout: 0.1
+
+# 训练配置
+train:
+  num_epochs: 10
+  batch_size: 32
+  learning_rate: 0.001
+  optimizer: "adam"  # adam, sgd
+  task_type: "classification"  # classification, regression
+  num_classes: 2  # 分类任务需要
+  use_scheduler: false
+  scheduler_type: "step"  # step, plateau
+  scheduler_step_size: 10
+  scheduler_gamma: 0.1
+
+# 输出配置
+output_dir: "./outputs"
+

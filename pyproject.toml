@@ -1,0 +1,70 @@
+# Black formatting
+[tool.black]
+line-length = 127
+include = '\.pyi?$'
+exclude = '''
+/(
+      .eggs
+    | .git
+    | .hg
+    | .mypy_cache
+    | .tox
+    | venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | site
+  )/
+'''
+
+# iSort
+[tool.isort]
+profile = "black"
+line_length = 127
+multi_line_output = 3
+include_trailing_comma = true
+virtual_env = "venv"
+
+[tool.flake8]
+exclude = "venv,.git,__pycache__,build,dist,site"
+ignore = ["E501", "W503", "E226"]
+# E501: Line too long
+# W503: Line break occurred before binary operator
+# E226: Missing white space around arithmetic operator
+max-line-length = 127
+
+[tool.pyupgrade]
+py39plus = true
+
+# Pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# Coverage
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
