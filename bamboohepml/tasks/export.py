@@ -6,8 +6,10 @@
 - 模型验证
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import onnx
 import onnxruntime as ort
@@ -22,7 +24,7 @@ def export_task(
     pipeline_config_path: str,
     model_path: str,
     output_path: str,
-    input_shape: Optional[tuple] = None,
+    input_shape: tuple | None = None,
     opset_version: int = 11,
 ) -> dict[str, Any]:
     """

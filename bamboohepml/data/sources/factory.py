@@ -4,8 +4,9 @@
 根据文件类型自动创建相应的数据源。
 """
 
+from __future__ import annotations
+
 import os
-from typing import Union
 
 from .base import DataSource, DataSourceConfig
 from .hdf5_source import HDF5DataSource
@@ -17,7 +18,7 @@ class DataSourceFactory:
     """数据源工厂类。"""
 
     @staticmethod
-    def create(file_paths: Union[str, list[str]], **kwargs) -> DataSource:
+    def create(file_paths: str | list[str], **kwargs) -> DataSource:
         """根据文件类型创建数据源。
 
         Args:

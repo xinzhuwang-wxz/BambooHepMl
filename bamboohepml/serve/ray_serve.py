@@ -4,8 +4,10 @@ Ray Serve 集成
 使用 Ray Serve 部署模型服务。
 """
 
+from __future__ import annotations
+
 from http import HTTPStatus
-from typing import Any, Optional
+from typing import Any
 
 import torch
 from fastapi import FastAPI
@@ -36,11 +38,11 @@ class RayServeDeployment:
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
-        pipeline_config_path: Optional[str] = None,
-        run_id: Optional[str] = None,
-        model_name: Optional[str] = None,
-        model_params: Optional[dict[str, Any]] = None,
+        model_path: str | None = None,
+        pipeline_config_path: str | None = None,
+        run_id: str | None = None,
+        model_name: str | None = None,
+        model_params: dict[str, Any] | None = None,
     ):
         """
         初始化部署。
@@ -59,7 +61,7 @@ class RayServeDeployment:
         # 加载模型
         self._load_model(model_name, model_params)
 
-    def _load_model(self, model_name: Optional[str], model_params: Optional[dict[str, Any]]):
+    def _load_model(self, model_name: str | None, model_params: dict[str, Any] | None):
         """加载模型。"""
         try:
             if self.pipeline_config_path:
@@ -172,11 +174,11 @@ class RayServeDeployment:
 
 
 def serve_ray(
-    model_path: Optional[str] = None,
-    pipeline_config_path: Optional[str] = None,
-    run_id: Optional[str] = None,
-    model_name: Optional[str] = None,
-    model_params: Optional[dict[str, Any]] = None,
+    model_path: str | None = None,
+    pipeline_config_path: str | None = None,
+    run_id: str | None = None,
+    model_name: str | None = None,
+    model_params: dict[str, Any] | None = None,
     **kwargs,
 ):
     """

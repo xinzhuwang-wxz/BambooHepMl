@@ -8,9 +8,11 @@
 - 表达式与数据源解耦
 """
 
+from __future__ import annotations
+
 import ast
 import math
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import awkward as ak
 import numpy as np
@@ -52,7 +54,7 @@ class OperatorRegistry:
             del self._functions[name]
             _logger.debug(f"Unregistered function: {name}")
 
-    def get(self, name: str) -> Optional[Callable]:
+    def get(self, name: str) -> Callable | None:
         """获取函数。
 
         Args:
@@ -148,7 +150,7 @@ class ExpressionEngine:
     - 函数注册机制
     """
 
-    def __init__(self, registry: Optional[OperatorRegistry] = None):
+    def __init__(self, registry: OperatorRegistry | None = None):
         """初始化表达式引擎。
 
         Args:

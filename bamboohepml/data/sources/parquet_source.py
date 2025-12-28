@@ -2,8 +2,9 @@
 Parquet 数据源实现
 """
 
+from __future__ import annotations
+
 import math
-from typing import Optional
 
 import awkward as ak
 
@@ -85,7 +86,7 @@ class ParquetDataSource(DataSource):
             _logger.error(f"获取分支列表时出错: {e}")
             return []
 
-    def get_num_events(self) -> Optional[int]:
+    def get_num_events(self) -> int | None:
         """获取事件数量。
 
         Returns:

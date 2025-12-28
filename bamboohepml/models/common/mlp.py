@@ -6,6 +6,8 @@ MLP 模型
 - MLPRegressor: 回归任务
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

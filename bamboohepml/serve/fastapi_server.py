@@ -4,8 +4,10 @@ FastAPI 推理服务
 提供 RESTful API 接口用于模型推理。
 """
 
+from __future__ import annotations
+
 from http import HTTPStatus
-from typing import Any, Optional
+from typing import Any
 
 import torch
 from fastapi import FastAPI, HTTPException
@@ -37,7 +39,7 @@ class PredictResponse(BaseModel):
     """预测响应模型。"""
 
     predictions: list[Any] = Field(..., description="预测结果列表")
-    probabilities: Optional[list[list[float]]] = Field(None, description="概率列表（如果请求）")
+    probabilities: list[list[float]] | None = Field(None, description="概率列表（如果请求）")
 
 
 class HealthResponse(BaseModel):
@@ -45,14 +47,14 @@ class HealthResponse(BaseModel):
 
     status: str = Field(..., description="状态")
     message: str = Field(..., description="消息")
-    model_info: Optional[dict[str, Any]] = Field(None, description="模型信息")
+    model_info: dict[str, Any] | None = Field(None, description="模型信息")
 
 
 def create_app(
-    model_path: Optional[str] = None,
-    pipeline_config_path: Optional[str] = None,
-    model_name: Optional[str] = None,
-    model_params: Optional[dict[str, Any]] = None,
+    model_path: str | None = None,
+    pipeline_config_path: str | None = None,
+    model_name: str | None = None,
+    model_params: dict[str, Any] | None = None,
 ) -> FastAPI:
     """
     创建 FastAPI 应用。
@@ -73,7 +75,7 @@ def create_app(
     )
 
     # 全局变量存储模型和预测器
-    predictor: Optional[Predictor] = None
+    predictor: Predictor | None = None
     model_info: dict[str, Any] = {}
 
     @app.on_event("startup")
@@ -266,7 +268,7 @@ def create_app(
     return app
 
 
-def serve_fastapi(model_path: str, pipeline_config_path: Optional[str] = None, host: str = "0.0.0.0", port: int = 8000, **kwargs):
+def serve_fastapi(model_path: str, pipeline_config_path: str | None = None, host: str = "0.0.0.0", port: int = 8000, **kwargs):
     """
     启动 FastAPI 服务。
 

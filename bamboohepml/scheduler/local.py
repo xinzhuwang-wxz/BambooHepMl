@@ -4,7 +4,9 @@
 直接在本地执行任务，不使用集群调度系统。
 """
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 from ..config import logger
 from ..tasks import export_task, inspect_task, predict_task, train_task
@@ -21,15 +23,15 @@ class LocalScheduler(BaseScheduler):
     def submit_train(
         self,
         pipeline_config_path: str,
-        experiment_name: Optional[str] = None,
-        num_epochs: Optional[int] = None,
-        batch_size: Optional[int] = None,
-        learning_rate: Optional[float] = None,
-        output_dir: Optional[str] = None,
+        experiment_name: str | None = None,
+        num_epochs: int | None = None,
+        batch_size: int | None = None,
+        learning_rate: float | None = None,
+        output_dir: str | None = None,
         use_ray: bool = False,
         num_workers: int = 1,
         gpu_per_worker: int = 0,
-        **kwargs
+        **kwargs,
     ) -> dict[str, Any]:
         """提交训练任务（本地执行）。"""
         logger.info("Using Local Scheduler for training")
@@ -50,10 +52,10 @@ class LocalScheduler(BaseScheduler):
         self,
         pipeline_config_path: str,
         model_path: str,
-        output_path: Optional[str] = None,
+        output_path: str | None = None,
         batch_size: int = 32,
         return_probabilities: bool = False,
-        **kwargs
+        **kwargs,
     ) -> list:
         """提交预测任务（本地执行）。"""
         logger.info("Using Local Scheduler for prediction")
@@ -67,7 +69,7 @@ class LocalScheduler(BaseScheduler):
         )
 
     def submit_export(
-        self, pipeline_config_path: str, model_path: str, output_path: str, input_shape: Optional[tuple] = None, opset_version: int = 11, **kwargs
+        self, pipeline_config_path: str, model_path: str, output_path: str, input_shape: tuple | None = None, opset_version: int = 11, **kwargs
     ) -> dict[str, Any]:
         """提交导出任务（本地执行）。"""
         logger.info("Using Local Scheduler for export")
@@ -83,11 +85,11 @@ class LocalScheduler(BaseScheduler):
     def submit_inspect(
         self,
         pipeline_config_path: str,
-        output_path: Optional[str] = None,
+        output_path: str | None = None,
         num_samples: int = 1000,
         inspect_data: bool = True,
         inspect_features: bool = True,
-        **kwargs
+        **kwargs,
     ) -> dict[str, Any]:
         """提交检查任务（本地执行）。"""
         logger.info("Using Local Scheduler for inspection")

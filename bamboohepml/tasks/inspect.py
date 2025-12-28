@@ -6,9 +6,11 @@
 - 特征检查（依赖关系、计算顺序）
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -20,7 +22,7 @@ from ..pipeline import PipelineOrchestrator
 
 def inspect_task(
     pipeline_config_path: str,
-    output_path: Optional[str] = None,
+    output_path: str | None = None,
     num_samples: int = 1000,
     inspect_data: bool = True,
     inspect_features: bool = True,

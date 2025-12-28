@@ -4,7 +4,9 @@ MLflow 跟踪器
 提供 MLflow 专用的实验跟踪功能。
 """
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 from ..config import MLFLOW_TRACKING_URI, logger
 
@@ -19,7 +21,7 @@ class MLflowTracker:
     - 下载 artifacts
     """
 
-    def __init__(self, tracking_uri: Optional[str] = None):
+    def __init__(self, tracking_uri: str | None = None):
         """
         初始化 MLflow 跟踪器。
 
@@ -41,8 +43,8 @@ class MLflowTracker:
     def search_runs(
         self,
         experiment_name: str,
-        filter_string: Optional[str] = None,
-        order_by: Optional[list] = None,
+        filter_string: str | None = None,
+        order_by: list | None = None,
         max_results: int = 100,
     ):
         """
@@ -72,7 +74,7 @@ class MLflowTracker:
         experiment_name: str,
         metric: str = "val_loss",
         mode: str = "min",
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         获取最佳 run。
 
@@ -106,7 +108,7 @@ class MLflowTracker:
             logger.warning(f"Failed to get best run: {e}")
             return None
 
-    def get_run(self, run_id: str) -> Optional[dict[str, Any]]:
+    def get_run(self, run_id: str) -> dict[str, Any] | None:
         """
         获取指定 run 的信息。
 

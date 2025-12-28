@@ -8,10 +8,12 @@ Callback 系统
 - TensorBoard: 可视化
 """
 
+from __future__ import annotations
+
 import logging
 from abc import ABC
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from ..config import logger
 
@@ -29,27 +31,27 @@ class Callback(ABC):
     - on_batch_end: 每个 batch 结束时调用
     """
 
-    def on_train_begin(self, logs: Optional[dict[str, Any]] = None):
+    def on_train_begin(self, logs: dict[str, Any] | None = None):
         """训练开始时调用。"""
         pass
 
-    def on_train_end(self, logs: Optional[dict[str, Any]] = None):
+    def on_train_end(self, logs: dict[str, Any] | None = None):
         """训练结束时调用。"""
         pass
 
-    def on_epoch_begin(self, epoch: int, logs: Optional[dict[str, Any]] = None):
+    def on_epoch_begin(self, epoch: int, logs: dict[str, Any] | None = None):
         """每个 epoch 开始时调用。"""
         pass
 
-    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None):
         """每个 epoch 结束时调用。"""
         pass
 
-    def on_batch_begin(self, batch: int, logs: Optional[dict[str, Any]] = None):
+    def on_batch_begin(self, batch: int, logs: dict[str, Any] | None = None):
         """每个 batch 开始时调用。"""
         pass
 
-    def on_batch_end(self, batch: int, logs: Optional[dict[str, Any]] = None):
+    def on_batch_end(self, batch: int, logs: dict[str, Any] | None = None):
         """每个 batch 结束时调用。"""
         pass
 
@@ -70,7 +72,7 @@ class LoggingCallback(Callback):
         """
         self.log_level = log_level
 
-    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None):
         """记录 epoch 结束时的指标。"""
         if logs:
             metrics_str = ", ".join([f"{k}={v:.4f}" if isinstance(v, (int, float)) else f"{k}={v}" for k, v in logs.items()])
@@ -118,7 +120,7 @@ class EarlyStoppingCallback(Callback):
         """设置模型（用于恢复权重）。"""
         self.model = model
 
-    def on_train_begin(self, logs: Optional[dict[str, Any]] = None):
+    def on_train_begin(self, logs: dict[str, Any] | None = None):
         """初始化。"""
         self.wait = 0
         self.stopped_epoch = 0
@@ -126,7 +128,7 @@ class EarlyStoppingCallback(Callback):
         if self.model is not None:
             self.best_weights = None
 
-    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None):
         """检查是否需要早停。"""
         if logs is None or self.monitor not in logs:
             return
@@ -158,7 +160,7 @@ class EarlyStoppingCallback(Callback):
                 logger.info("Restoring best weights")
                 self.model.load_state_dict(self.best_weights)
 
-    def on_train_end(self, logs: Optional[dict[str, Any]] = None):
+    def on_train_end(self, logs: dict[str, Any] | None = None):
         """训练结束时恢复最佳权重。"""
         if self.stopped_epoch > 0:
             logger.info(f"Training stopped early at epoch {self.stopped_epoch}")
@@ -180,11 +182,11 @@ class MLflowCallback(Callback):
 
     def __init__(
         self,
-        experiment_name: Optional[str] = None,
-        tracking_uri: Optional[str] = None,
+        experiment_name: str | None = None,
+        tracking_uri: str | None = None,
         log_config: bool = True,
         log_artifacts: bool = True,
-        artifact_paths: Optional[list] = None,
+        artifact_paths: list | None = None,
     ):
         """
         初始化 MLflow Callback。
@@ -213,7 +215,7 @@ class MLflowCallback(Callback):
         except ImportError:
             logger.warning("MLflow not available, MLflowCallback will be disabled")
 
-    def on_train_begin(self, logs: Optional[dict[str, Any]] = None):
+    def on_train_begin(self, logs: dict[str, Any] | None = None):
         """开始 MLflow run，自动记录 config。"""
         if self.mlflow is None:
             return
@@ -249,7 +251,7 @@ class MLflowCallback(Callback):
         except Exception as e:
             logger.warning(f"Failed to start MLflow run: {e}")
 
-    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None):
         """自动记录 epoch 指标。"""
         if self.mlflow is None or logs is None:
             return
@@ -270,7 +272,7 @@ class MLflowCallback(Callback):
         except Exception as e:
             logger.warning(f"Failed to log metrics to MLflow: {e}")
 
-    def on_train_end(self, logs: Optional[dict[str, Any]] = None):
+    def on_train_end(self, logs: dict[str, Any] | None = None):
         """结束 MLflow run，自动保存 artifacts。"""
         if self.mlflow is None:
             return
@@ -316,7 +318,7 @@ class MLflowCallback(Callback):
                 items.append((new_key, str(v)))
         return dict(items)
 
-    def log_artifact(self, artifact_path: str, artifact_path_in_mlflow: Optional[str] = None):
+    def log_artifact(self, artifact_path: str, artifact_path_in_mlflow: str | None = None):
         """手动记录 artifact。"""
         if self.mlflow is None:
             return
@@ -371,7 +373,7 @@ class TensorBoardCallback(Callback):
         """设置模型（用于记录模型图）。"""
         self.model = model
 
-    def on_train_begin(self, logs: Optional[dict[str, Any]] = None):
+    def on_train_begin(self, logs: dict[str, Any] | None = None):
         """记录配置和模型图。"""
         if self.writer is None:
             return
@@ -398,7 +400,7 @@ class TensorBoardCallback(Callback):
         except Exception as e:
             logger.warning(f"Failed to log to TensorBoard: {e}")
 
-    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: dict[str, Any] | None = None):
         """自动记录 epoch 指标。"""
         if self.writer is None or logs is None:
             return
@@ -414,7 +416,7 @@ class TensorBoardCallback(Callback):
         except Exception as e:
             logger.warning(f"Failed to log to TensorBoard: {e}")
 
-    def on_train_end(self, logs: Optional[dict[str, Any]] = None):
+    def on_train_end(self, logs: dict[str, Any] | None = None):
         """关闭 TensorBoard writer。"""
         if self.writer is not None:
             try:

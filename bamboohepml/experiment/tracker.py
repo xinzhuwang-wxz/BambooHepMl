@@ -4,7 +4,9 @@
 提供统一的接口来管理 MLflow 和 TensorBoard。
 """
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 from ..engine.callbacks import MLflowCallback, TensorBoardCallback
 
@@ -23,11 +25,11 @@ class ExperimentTracker:
 
     def __init__(
         self,
-        experiment_name: Optional[str] = None,
+        experiment_name: str | None = None,
         use_mlflow: bool = True,
         use_tensorboard: bool = True,
-        mlflow_tracking_uri: Optional[str] = None,
-        tensorboard_log_dir: Optional[str] = None,
+        mlflow_tracking_uri: str | None = None,
+        tensorboard_log_dir: str | None = None,
         log_config: bool = True,
         log_artifacts: bool = True,
     ):
@@ -70,7 +72,7 @@ class ExperimentTracker:
         else:
             self.tensorboard_callback = None
 
-    def start_run(self, config: Optional[dict[str, Any]] = None, model=None):
+    def start_run(self, config: dict[str, Any] | None = None, model=None):
         """
         开始实验 run。
 
@@ -98,7 +100,7 @@ class ExperimentTracker:
         for callback in self.callbacks:
             callback.on_epoch_end(step, metrics)
 
-    def log_artifact(self, artifact_path: str, artifact_path_in_mlflow: Optional[str] = None):
+    def log_artifact(self, artifact_path: str, artifact_path_in_mlflow: str | None = None):
         """
         记录 artifact。
 
@@ -109,7 +111,7 @@ class ExperimentTracker:
         if self.mlflow_callback:
             self.mlflow_callback.log_artifact(artifact_path, artifact_path_in_mlflow)
 
-    def end_run(self, logs: Optional[dict[str, Any]] = None):
+    def end_run(self, logs: dict[str, Any] | None = None):
         """
         结束实验 run。
 

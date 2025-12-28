@@ -7,10 +7,12 @@
 - 模型保存和加载
 """
 
+from __future__ import annotations
+
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -62,7 +64,7 @@ class BaseModel(nn.Module, ABC):
         pass
 
     @torch.inference_mode()
-    def predict(self, batch: dict[str, torch.Tensor]) -> Union[torch.Tensor, dict[str, torch.Tensor]]:
+    def predict(self, batch: dict[str, torch.Tensor]) -> torch.Tensor | dict[str, torch.Tensor]:
         """
         预测（推理模式）。
 
@@ -105,7 +107,7 @@ class BaseModel(nn.Module, ABC):
             return output.squeeze().cpu()
 
     @torch.inference_mode()
-    def predict_proba(self, batch: dict[str, torch.Tensor]) -> Union[torch.Tensor, dict[str, torch.Tensor]]:
+    def predict_proba(self, batch: dict[str, torch.Tensor]) -> torch.Tensor | dict[str, torch.Tensor]:
         """
         预测概率（仅分类任务）。
 
@@ -128,7 +130,7 @@ class BaseModel(nn.Module, ABC):
         else:
             return F.softmax(output, dim=1).cpu()
 
-    def freeze_layers(self, layer_names: Optional[list[str]] = None, freeze_all: bool = False):
+    def freeze_layers(self, layer_names: list[str] | None = None, freeze_all: bool = False):
         """
         冻结层（用于 finetune）。
 
@@ -149,7 +151,7 @@ class BaseModel(nn.Module, ABC):
                     param.requires_grad = False
                     self._frozen_layers.add(name)
 
-    def unfreeze_layers(self, layer_names: Optional[list[str]] = None, unfreeze_all: bool = False):
+    def unfreeze_layers(self, layer_names: list[str] | None = None, unfreeze_all: bool = False):
         """
         解冻层。
 
@@ -178,7 +180,7 @@ class BaseModel(nn.Module, ABC):
         """
         return list(self._frozen_layers)
 
-    def save(self, save_dir: Union[str, Path], model_name: str = "model"):
+    def save(self, save_dir: str | Path, model_name: str = "model"):
         """
         保存模型。
 
@@ -205,7 +207,7 @@ class BaseModel(nn.Module, ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, save_dir: Union[str, Path], model_name: str = "model", **kwargs):
+    def load(cls, save_dir: str | Path, model_name: str = "model", **kwargs):
         """
         加载模型。
 

@@ -8,9 +8,11 @@
 - 从 YAML 配置自动构建
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -60,7 +62,7 @@ class FeatureGraph:
         """
         self.nodes: dict[str, FeatureNode] = {}
         self.edges: list[tuple[str, str]] = []  # (source, target) 表示 source 依赖 target
-        self._execution_order: Optional[list[str]] = None
+        self._execution_order: list[str] | None = None
         self.enable_cache = enable_cache
         self._cache: dict[str, Any] = {}  # 特征值缓存
         self._computation_stats: dict[str, dict] = {}  # 计算统计信息
@@ -227,7 +229,7 @@ class FeatureGraph:
                 self.nodes[feature_name].cached_value = value
                 self.nodes[feature_name].computed = True
 
-    def get_cached_value(self, feature_name: str) -> Optional[Any]:
+    def get_cached_value(self, feature_name: str) -> Any | None:
         """获取缓存的特征值。
 
         Args:
@@ -240,7 +242,7 @@ class FeatureGraph:
             return self._cache[feature_name]
         return None
 
-    def clear_cache(self, feature_name: Optional[str] = None):
+    def clear_cache(self, feature_name: str | None = None):
         """清除缓存。
 
         Args:
@@ -365,7 +367,7 @@ class FeatureGraph:
         return "\n".join(lines)
 
     @classmethod
-    def from_feature_defs(cls, features: dict[str, dict], expression_engine, enable_cache: bool = True) -> "FeatureGraph":
+    def from_feature_defs(cls, features: dict[str, dict], expression_engine, enable_cache: bool = True) -> FeatureGraph:
         """从特征定义构建图。
 
         Args:
@@ -432,7 +434,7 @@ class FeatureGraph:
         return graph
 
     @classmethod
-    def from_yaml(cls, yaml_path: str, expression_engine, enable_cache: bool = True) -> "FeatureGraph":
+    def from_yaml(cls, yaml_path: str, expression_engine, enable_cache: bool = True) -> FeatureGraph:
         """从 YAML 配置文件构建图。
 
         Args:

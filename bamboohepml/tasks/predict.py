@@ -7,9 +7,11 @@
 - 结果保存
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import torch
 from torch.utils.data import DataLoader
@@ -23,7 +25,7 @@ from ..pipeline import PipelineOrchestrator
 def predict_task(
     pipeline_config_path: str,
     model_path: str,
-    output_path: Optional[str] = None,
+    output_path: str | None = None,
     batch_size: int = 32,
     return_probabilities: bool = False,
 ) -> list[dict[str, Any]]:

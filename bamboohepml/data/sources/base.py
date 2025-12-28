@@ -4,9 +4,11 @@
 定义数据源的抽象接口，实现数据源与特征系统的解耦。
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 import awkward as ak
 
@@ -23,11 +25,11 @@ class DataSourceConfig:
         load_range: 加载范围 (start, end)，范围在 [0, 1]
     """
 
-    file_paths: Union[str, list[str]]
-    treename: Optional[str] = None
-    branch_magic: Optional[dict[str, str]] = None
-    file_magic: Optional[dict[str, dict[str, Any]]] = None
-    load_range: Optional[tuple] = None
+    file_paths: str | list[str]
+    treename: str | None = None
+    branch_magic: dict[str, str] | None = None
+    file_magic: dict[str, dict[str, Any]] | None = None
+    load_range: tuple | None = None
 
 
 class DataSource(ABC):
@@ -47,7 +49,7 @@ class DataSource(ABC):
         self._file_paths = self._resolve_file_paths(config.file_paths)
 
     @staticmethod
-    def _resolve_file_paths(file_paths: Union[str, list[str]]) -> list[str]:
+    def _resolve_file_paths(file_paths: str | list[str]) -> list[str]:
         """解析文件路径。
 
         Args:
@@ -99,7 +101,7 @@ class DataSource(ABC):
         """
         return self._file_paths.copy()
 
-    def get_num_events(self) -> Optional[int]:
+    def get_num_events(self) -> int | None:
         """获取事件数量（如果可用）。
 
         Returns:

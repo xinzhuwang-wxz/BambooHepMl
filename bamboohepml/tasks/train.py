@@ -8,10 +8,12 @@
 - Checkpoint 管理
 """
 
+from __future__ import annotations
+
 import json
 import tempfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -45,7 +47,7 @@ except ImportError:
     RAY_AVAILABLE = False
 
 
-def _convert_dataset_to_ray(dataset, max_samples: Optional[int] = None):
+def _convert_dataset_to_ray(dataset, max_samples: int | None = None):
     """将 HEPDataset 转换为 Ray Dataset（简化版）。
 
     注意：这是一个简化实现，对于大数据集可能效率不高。
@@ -237,11 +239,11 @@ def train_loop_per_worker(config: dict) -> None:
 
 def train_task(
     pipeline_config_path: str,
-    experiment_name: Optional[str] = None,
-    num_epochs: Optional[int] = None,
-    batch_size: Optional[int] = None,
-    learning_rate: Optional[float] = None,
-    output_dir: Optional[str] = None,
+    experiment_name: str | None = None,
+    num_epochs: int | None = None,
+    batch_size: int | None = None,
+    learning_rate: float | None = None,
+    output_dir: str | None = None,
     use_ray: bool = False,
     num_workers: int = 1,
     gpu_per_worker: int = 0,

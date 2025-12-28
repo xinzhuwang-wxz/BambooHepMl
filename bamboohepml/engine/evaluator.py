@@ -7,7 +7,7 @@ Evaluator 类
 - 多任务评估
 """
 
-from typing import Optional
+from __future__ import annotations
 
 import numpy as np
 import torch
@@ -39,8 +39,8 @@ class Evaluator:
         self,
         model: BaseModel,
         dataloader: DataLoader,
-        loss_fn: Optional[torch.nn.Module] = None,
-        device: Optional[torch.device] = None,
+        loss_fn: torch.nn.Module | None = None,
+        device: torch.device | None = None,
     ) -> dict[str, float]:
         """
         评估模型。

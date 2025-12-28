@@ -8,9 +8,11 @@ Dataset 类
 - 与特征系统集成
 """
 
+from __future__ import annotations
+
 import copy
 from functools import partial
-from typing import Any, Optional
+from typing import Any
 
 import awkward as ak
 import numpy as np
@@ -210,7 +212,7 @@ class HEPDataset(IterableDataset):
         up_sample: bool = True,
         weight_scale: float = 1.0,
         max_resample: int = 10,
-        selection: Optional[str] = None,
+        selection: str | None = None,
     ):
         """初始化数据集。
 

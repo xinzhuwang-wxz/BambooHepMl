@@ -4,7 +4,9 @@ ONNX 推理接口
 提供 ONNX 模型的推理功能。
 """
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 
@@ -25,7 +27,7 @@ class ONNXPredictor:
     使用 ONNX Runtime 进行推理。
     """
 
-    def __init__(self, onnx_path: str, providers: Optional[list[str]] = None):
+    def __init__(self, onnx_path: str, providers: list[str] | None = None):
         """
         初始化 ONNX 预测器。
 

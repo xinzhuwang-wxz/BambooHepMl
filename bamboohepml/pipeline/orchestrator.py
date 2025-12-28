@@ -4,8 +4,10 @@ Pipeline Orchestrator
 统一入口，协调整个 ML pipeline。
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -105,7 +107,7 @@ class PipelineOrchestrator:
         logger.info("Data system setup complete")
         return dataset
 
-    def setup_model(self, input_dim: Optional[int] = None) -> Any:
+    def setup_model(self, input_dim: int | None = None) -> Any:
         """
         设置模型系统。
 
@@ -157,14 +159,14 @@ class PipelineOrchestrator:
         """
         return self.config
 
-    def get_data_config(self) -> Optional[DataConfig]:
+    def get_data_config(self) -> DataConfig | None:
         """获取 DataConfig。"""
         return self.data_config
 
-    def get_model_config(self) -> Optional[dict[str, Any]]:
+    def get_model_config(self) -> dict[str, Any] | None:
         """获取模型配置。"""
         return self.model_config
 
-    def get_feature_graph(self) -> Optional[FeatureGraph]:
+    def get_feature_graph(self) -> FeatureGraph | None:
         """获取特征图。"""
         return self.feature_graph

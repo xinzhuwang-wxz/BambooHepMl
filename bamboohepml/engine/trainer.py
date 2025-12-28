@@ -8,8 +8,10 @@
 - 多任务 Loss
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable
 
 import torch
 import torch.nn as nn
@@ -38,14 +40,14 @@ class Trainer:
         self,
         model: BaseModel,
         train_loader: DataLoader,
-        val_loader: Optional[DataLoader] = None,
-        test_loader: Optional[DataLoader] = None,
-        loss_fn: Optional[Union[nn.Module, Callable]] = None,
-        optimizer: Optional[torch.optim.Optimizer] = None,
-        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
-        device: Optional[torch.device] = None,
+        val_loader: DataLoader | None = None,
+        test_loader: DataLoader | None = None,
+        loss_fn: nn.Module | Callable | None = None,
+        optimizer: torch.optim.Optimizer | None = None,
+        scheduler: torch.optim.lr_scheduler._LRScheduler | None = None,
+        device: torch.device | None = None,
         task_type: str = "supervised",
-        callbacks: Optional[list[Callback]] = None,
+        callbacks: list[Callback] | None = None,
     ):
         """
         初始化训练器。
@@ -224,7 +226,7 @@ class Trainer:
     def fit(
         self,
         num_epochs: int,
-        save_dir: Optional[str] = None,
+        save_dir: str | None = None,
         save_best: bool = True,
         monitor: str = "val_loss",
     ) -> dict[str, Any]:

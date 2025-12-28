@@ -4,7 +4,7 @@
 提供模型注册和发现机制，支持动态注册模型。
 """
 
-from typing import Optional
+from __future__ import annotations
 
 from .base import BaseModel
 
@@ -36,7 +36,7 @@ class ModelRegistry:
             raise TypeError(f"Model class must be a subclass of BaseModel, got {model_class}")
         self._registry[name] = model_class
 
-    def get(self, name: str) -> Optional[type[BaseModel]]:
+    def get(self, name: str) -> type[BaseModel] | None:
         """
         获取模型类。
 

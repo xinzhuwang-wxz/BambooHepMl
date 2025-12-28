@@ -7,7 +7,9 @@ Predictor 类
 - 多任务预测
 """
 
-from typing import Any, Optional
+from __future__ import annotations
+
+from typing import Any
 
 import torch
 from torch.utils.data import DataLoader
@@ -25,7 +27,7 @@ class Predictor:
     - 多任务预测
     """
 
-    def __init__(self, model: BaseModel, device: Optional[torch.device] = None):
+    def __init__(self, model: BaseModel, device: torch.device | None = None):
         """
         初始化预测器。
 
