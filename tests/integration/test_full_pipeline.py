@@ -202,7 +202,7 @@ def test_export_predict_pipeline():
         optimizer=torch.optim.Adam(model.parameters(), lr=0.001),
         device=torch.device("cpu"),
     )
-    trainer.train(num_epochs=1)
+    trainer.fit(num_epochs=1)
     print("   ✓ 模型训练完成")
 
     # 2. 保存模型
