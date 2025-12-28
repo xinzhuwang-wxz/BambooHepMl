@@ -352,7 +352,8 @@ def test_feature_processor():
     print("\n原始值 (object-level):")
     print(f"  Event 0: {raw_value_obj[0]}")
 
-    processed_value_obj = processor_obj.process(raw_value_obj, fit_normalizer=True)
+    processor_obj.fit(raw_value_obj)
+    processed_value_obj = processor_obj.process(raw_value_obj)
     print("处理后 (object-level, padded to 5):")
     print(f"  Event 0: {processed_value_obj[0]}")
     assert processed_value_obj.shape == (3, 5)  # 3 个事件，每个填充到 5

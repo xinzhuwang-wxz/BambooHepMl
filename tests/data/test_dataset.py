@@ -84,6 +84,9 @@ class MockDataSource:
                 result[branch] = self.table[branch]
             elif branch == "Jet" and "Jet" in self.table.fields:
                 result["Jet"] = self.table["Jet"]
+        # 如果请求的分支列表为空，返回完整的表（用于测试）
+        if not branches and not result:
+            return self.table
         return ak.Array(result)
 
     def get_available_branches(self):

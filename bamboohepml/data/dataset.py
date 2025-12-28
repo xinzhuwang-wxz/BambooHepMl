@@ -11,7 +11,6 @@ Dataset 类
 from __future__ import annotations
 
 import copy
-from functools import partial
 from typing import Any
 
 import awkward as ak
@@ -20,10 +19,9 @@ import torch
 from torch.utils.data import IterableDataset
 
 from .config import DataConfig
-from .logger import _logger
 from .preprocess import _apply_selection, _build_new_variables, _build_weights
 from .sources.base import DataSource
-from .tools import _clip, _pad, _repeat_pad, _stack
+from .tools import _stack
 
 
 def _collate_awkward_array_fn(batch, *, collate_fn_map=None):
@@ -158,6 +156,29 @@ class HEPDataset(IterableDataset):
         """
         # 1. 确定要加载的分支
         load_branches = self.data_config.train_load_branches if self.for_training else self.data_config.test_load_branches
+
+        # 如果 load_branches 为空，从 FeatureGraph 提取需要的数据源字段
+        if not load_branches and self.feature_graph.expression_engine is not None:
+            required_fields = set()
+            for node in self.feature_graph.nodes.values():
+                feature_def = node.feature_def
+                # 从 expr 提取依赖
+                if "expr" in feature_def:
+                    expr = feature_def["expr"]
+                    try:
+                        deps = self.feature_graph.expression_engine.get_dependencies(expr)
+                        # 只保留不在特征图中的依赖（即原始数据字段）
+                        for dep in deps:
+                            if dep not in self.feature_graph.nodes:
+                                required_fields.add(dep)
+                    except Exception:
+                        pass
+                # 从 source 提取
+                source = feature_def.get("source")
+                if source and source not in self.feature_graph.nodes:
+                    required_fields.add(source)
+
+            load_branches = required_fields
 
         # 2. 加载数据
         table = self.data_source.load_branches(list(load_branches))
