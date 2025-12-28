@@ -129,28 +129,30 @@ def predict(
 
 @app.command()
 def export(
-    pipeline_config: Annotated[str, typer.Option("-c", "--config", help="Pipeline 配置文件路径")],
     model_path: Annotated[str, typer.Option("-m", "--model", help="模型文件路径")],
     output_path: Annotated[str, typer.Option("-o", "--output", help="输出 ONNX 文件路径")],
-    input_shape: Annotated[Optional[str], typer.Option("--input-shape", help="输入形状，格式：'batch,features' 或 'features'")] = None,
+    metadata_path: Annotated[Optional[str], typer.Option("--metadata", help="元数据文件路径（默认为 model_path 同目录下的 metadata.json）")] = None,
+    input_shape: Annotated[
+        Optional[str], typer.Option("--input-shape", help="输入形状，格式：'batch,features' 或 'features'（如果提供，将覆盖 metadata）")
+    ] = None,
     opset_version: Annotated[int, typer.Option("--opset-version", help="ONNX opset 版本")] = 11,
+    pipeline_config: Annotated[Optional[str], typer.Option("-c", "--config", help="Pipeline 配置文件路径（已废弃，向后兼容用）")] = None,
     scheduler: Annotated[str, typer.Option("--scheduler", help="调度器类型：local 或 slurm")] = "local",
     slurm_config: Annotated[Optional[str], typer.Option("--slurm-config", help="SLURM 配置文件路径（仅 slurm 调度器）")] = None,
 ) -> None:
     """导出模型为 ONNX 格式。
 
+    导出不依赖 Dataset 和 Pipeline，只依赖模型和 metadata。
+
     示例:
-        bamboohepml export -c configs/pipeline.yaml -m outputs/model.pt -o model.onnx
+        bamboohepml export -m outputs/model.pt -o model.onnx
+        bamboohepml export -m outputs/model.pt -o model.onnx --metadata outputs/metadata.json
     """
     logger.info("=" * 80)
     logger.info("BambooHepMl Export Command")
     logger.info("=" * 80)
 
     # 验证文件存在
-    if not Path(pipeline_config).exists():
-        logger.error(f"Pipeline config file not found: {pipeline_config}")
-        raise typer.Exit(1)
-
     if not Path(model_path).exists():
         logger.error(f"Model file not found: {model_path}")
         raise typer.Exit(1)
@@ -175,11 +177,12 @@ def export(
 
     # 准备导出参数
     export_kwargs = {
-        "pipeline_config_path": pipeline_config,
         "model_path": model_path,
         "output_path": output_path,
+        "metadata_path": metadata_path,
         "input_shape": parsed_input_shape,
         "opset_version": opset_version,
+        "pipeline_config_path": pipeline_config,  # 向后兼容
     }
 
     # 使用调度器提交任务

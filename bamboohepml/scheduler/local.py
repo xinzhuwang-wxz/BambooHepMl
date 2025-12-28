@@ -69,17 +69,25 @@ class LocalScheduler(BaseScheduler):
         )
 
     def submit_export(
-        self, pipeline_config_path: str, model_path: str, output_path: str, input_shape: tuple | None = None, opset_version: int = 11, **kwargs
+        self,
+        model_path: str,
+        output_path: str,
+        metadata_path: str | None = None,
+        input_shape: tuple | None = None,
+        opset_version: int = 11,
+        pipeline_config_path: str | None = None,  # 向后兼容，已废弃
+        **kwargs,
     ) -> dict[str, Any]:
         """提交导出任务（本地执行）。"""
         logger.info("Using Local Scheduler for export")
 
         return export_task(
-            pipeline_config_path=pipeline_config_path,
             model_path=model_path,
             output_path=output_path,
+            metadata_path=metadata_path,
             input_shape=input_shape,
             opset_version=opset_version,
+            pipeline_config_path=pipeline_config_path,  # 向后兼容
         )
 
     def submit_inspect(

@@ -15,26 +15,31 @@ from ..config import logger
 from ..data import DataConfig, DataSourceFactory, HEPDataset
 from ..data.features import ExpressionEngine, FeatureGraph
 from ..models import get_model
+from .state import PipelineState
 
 
 class PipelineOrchestrator:
     """
-    Pipeline Orchestrator
+    Pipeline 编排器，负责协调整个 ML pipeline 的生命周期。
 
-    功能：
-    - 加载 pipeline.yaml
-    - 解析 data / feature / model / train 配置
-    - 构建 dataset
-    - 构建 model
-    - 提供统一入口
+    作为框架的统一入口点，PipelineOrchestrator 负责：
+    - 加载和解析 pipeline.yaml 配置文件
+    - 初始化数据源、特征图、模型等组件
+    - 验证配置一致性和组件兼容性
+    - 管理 PipelineState（用于配置验证和持久化）
+
+    典型使用流程：
+    1. setup_data(): 加载数据配置，创建数据源，构建特征图并拟合
+    2. setup_model(): 从特征图推断输入维度，创建模型实例
+    3. save_pipeline_state(): 保存完整的 pipeline 状态用于后续验证和恢复
     """
 
     def __init__(self, pipeline_config_path: str):
         """
-        初始化 Pipeline Orchestrator。
+        初始化 Pipeline 编排器。
 
         Args:
-            pipeline_config_path: pipeline.yaml 文件路径
+            pipeline_config_path: pipeline.yaml 配置文件的路径
         """
         self.pipeline_config_path = Path(pipeline_config_path)
         self.config = self._load_config()
@@ -43,6 +48,7 @@ class PipelineOrchestrator:
         self.train_config = None
         self.feature_graph = None
         self.expression_engine = None
+        self.pipeline_state: PipelineState | None = None
 
     def _load_config(self) -> dict[str, Any]:
         """加载 pipeline.yaml 配置。"""
@@ -55,12 +61,23 @@ class PipelineOrchestrator:
         logger.info(f"Loaded pipeline config from {self.pipeline_config_path}")
         return config
 
-    def setup_data(self) -> HEPDataset:
+    def setup_data(self, fit_features: bool = True, fit_samples: int = 10000) -> tuple[HEPDataset, HEPDataset | None]:
         """
-        设置数据系统。
+        设置数据系统：加载数据配置、创建数据源、构建特征图并创建数据集。
+
+        如果 fit_features=True，会从训练数据中采样 fit_samples 个样本用于拟合特征处理器
+        （计算 Normalizer 的统计参数）。这对于确保训练/验证/测试数据的一致性至关重要。
+
+        验证集分割：
+        - 如果配置了 val_split > 0 且提供了 load_range，会自动进行数据分割
+        - 验证集使用独立的数据源，确保数据不重叠
+
+        Args:
+            fit_features: 是否拟合特征处理器（计算 Normalizer 参数）
+            fit_samples: 用于拟合的样本数量
 
         Returns:
-            HEPDataset: 配置好的数据集
+            (训练数据集, 验证数据集) 元组，验证数据集可能为 None
         """
         # 加载 DataConfig
         data_config_path = self.config.get("data", {}).get("config_path")
@@ -78,44 +95,119 @@ class PipelineOrchestrator:
 
         treename = self.config.get("data", {}).get("treename", "tree")
         load_range = self.config.get("data", {}).get("load_range")
+        val_split = self.config.get("data", {}).get("val_split", 0.0)
+
+        # 处理验证集分割
+        train_range = load_range
+        val_range = None
+
+        if val_split > 0:
+            if load_range:
+                start, end = load_range
+                total = end - start
+                split_point = int(start + total * (1 - val_split))
+                train_range = [start, split_point]
+                val_range = [split_point, end]
+                logger.info(f"Splitting data into train range {train_range} and val range {val_range} (split={val_split})")
+            else:
+                # P1-2 修复：如果 val_split 指定但 load_range 缺失，抛出错误
+                # 这是为了防止数据泄漏：验证集不能是训练集的副本
+                raise ValueError(
+                    "val_split specified but load_range is missing. "
+                    "Cannot safely split data without knowing the total data size. "
+                    "To fix this, either:\n"
+                    "  1. Specify load_range in data config (e.g., [0.0, 1.0] for all data)\n"
+                    "  2. Use separate data files for training and validation\n"
+                    "  3. Set val_split=0.0 to disable validation split"
+                )
 
         data_source = DataSourceFactory.create(
             data_source_path,
             treename=treename,
-            load_range=load_range,
+            load_range=train_range,
         )
 
-        # 设置特征系统（可选）
+        # 设置特征系统（必需）
         feature_config_path = self.config.get("features", {}).get("config_path")
-        if feature_config_path:
+        if not feature_config_path:
+            raise ValueError("features.config_path is required. Feature definitions must be in features.yaml via FeatureGraph.")
+
+        if self.feature_graph is None:
             self.expression_engine = ExpressionEngine()
             self.feature_graph = FeatureGraph.from_yaml(
                 feature_config_path,
                 self.expression_engine,
             )
 
-        # 创建数据集
-        dataset = HEPDataset(
+        # 拟合特征（如果需要）
+        if fit_features:
+            logger.info(f"Fitting features with {fit_samples} samples...")
+            # 临时加载一部分数据用于拟合
+            # 注意：我们需要加载 FeatureGraph 需要的所有原始分支
+            # 为了简单起见，我们加载 DataConfig 中指定的所有训练分支
+            load_branches = list(self.data_config.train_load_branches)
+
+            # 使用 data_source 的切片功能（如果支持）或加载后切片
+            # 这里假设 load_branches 返回所有数据，我们只取前 fit_samples
+            # 更好的做法是在 data_source 层面支持 limit，但现在先这样
+            raw_table = data_source.load_branches(load_branches)
+
+            if len(raw_table) > fit_samples:
+                raw_table = raw_table[:fit_samples]
+
+            self.feature_graph.fit(raw_table)
+
+        # 创建训练数据集
+        train_dataset = HEPDataset(
             data_source=data_source,
             data_config=self.data_config,
-            feature_graph=self.feature_graph,
-            expression_engine=self.expression_engine,
+            feature_graph=self.feature_graph,  # 必需参数
             for_training=True,
             shuffle=True,
         )
 
+        # 创建验证数据集（如果有配置）
+        val_dataset = None
+        # P1-2 修复：支持基于 range 的验证集分割
+        if val_split > 0 and val_range is not None:
+            # 创建验证集数据源（使用 val_range）
+            val_data_source = DataSourceFactory.create(
+                data_source_path,
+                treename=treename,
+                load_range=val_range,
+            )
+
+            val_dataset = HEPDataset(
+                data_source=val_data_source,
+                data_config=self.data_config,
+                feature_graph=self.feature_graph,
+                for_training=False,  # 使用测试配置（无 shuffle/reweight）
+                shuffle=False,
+            )
+            logger.info(f"Validation dataset created with range {val_range}")
+
         logger.info("Data system setup complete")
-        return dataset
+        return train_dataset, val_dataset
 
     def setup_model(self, input_dim: int | None = None) -> Any:
         """
-        设置模型系统。
+        设置模型系统：从配置创建模型实例。
+
+        如果未提供 input_dim，会自动从 FeatureGraph.output_spec() 推断：
+        - 优先使用 event-level 特征的维度
+        - 如果没有 event-level，使用 object-level 特征的展平维度
+
+        该方法会验证配置中的 input_dim（如果存在）与推断值的一致性，
+        如果不一致，会使用推断值并发出警告。
 
         Args:
-            input_dim: 输入维度（如果为 None，将从数据中推断）
+            input_dim: 模型输入维度，如果为 None 则从 FeatureGraph 推断
 
         Returns:
-            模型实例
+            创建的模型实例
+
+        Raises:
+            ValueError: 如果 feature_graph 未初始化或无法推断输入维度
         """
         model_config = self.config.get("model", {})
         if not model_config:
@@ -128,8 +220,36 @@ class PipelineOrchestrator:
         # 获取模型参数
         model_kwargs = model_config.get("params", {})
 
-        # 如果提供了 input_dim，使用它；否则从配置中获取
+        # 从 FeatureGraph.output_spec() 推断输入维度
+        if input_dim is None:
+            if self.feature_graph is None:
+                raise ValueError("feature_graph is required to infer input_dim. Call setup_data() first.")
+
+            output_spec = self.feature_graph.output_spec()
+
+            # 优先使用 event-level 特征维度
+            if "event" in output_spec:
+                input_dim = output_spec["event"]["dim"]
+                logger.info(f"Inferred input_dim={input_dim} from event-level features (dim={output_spec['event']['dim']})")
+            elif "object" in output_spec:
+                # 如果没有 event-level，使用 object-level（需要展平）
+                object_dim = output_spec["object"]["dim"]
+                max_length = output_spec["object"]["max_length"]
+                input_dim = object_dim * max_length  # 展平后的维度
+                logger.info(f"Inferred input_dim={input_dim} from object-level features (dim={object_dim}, max_length={max_length})")
+            else:
+                raise ValueError("No features found in output_spec. Cannot infer input_dim.")
+
+        # 如果提供了 input_dim，使用它；否则使用从 output_spec 推断的值
         if input_dim is not None:
+            model_kwargs["input_dim"] = input_dim
+
+        # 验证配置一致性（如果配置中已有 input_dim）
+        if "input_dim" in model_kwargs and model_kwargs["input_dim"] != input_dim:
+            logger.warning(
+                f"input_dim mismatch: config has {model_kwargs['input_dim']}, "
+                f"but FeatureGraph output_spec suggests {input_dim}. Using {input_dim}."
+            )
             model_kwargs["input_dim"] = input_dim
 
         # 创建模型
@@ -137,6 +257,28 @@ class PipelineOrchestrator:
 
         self.model_config = model_config
         logger.info(f"Model '{model_name}' created with params: {model_kwargs}")
+
+        # 创建并验证 PipelineState
+        task_type = self.get_train_config().get("task_type", "classification")
+        self.pipeline_state = PipelineState.from_configs(
+            feature_graph=self.feature_graph,
+            model_config=self.model_config,
+            task_type=task_type,
+            pipeline_config_path=str(self.pipeline_config_path),
+            feature_config_path=self.config.get("features", {}).get("config_path"),
+            data_config_path=self.config.get("data", {}).get("config_path"),
+        )
+
+        # 验证配置一致性
+        is_valid, errors = self.pipeline_state.validate()
+        if not is_valid:
+            error_msg = "Pipeline configuration validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        logger.info("Pipeline state validated successfully")
+        logger.info(f"Pipeline state: {self.pipeline_state.get_model_info()}")
+
         return model
 
     def get_train_config(self) -> dict[str, Any]:
@@ -170,3 +312,72 @@ class PipelineOrchestrator:
     def get_feature_graph(self) -> FeatureGraph | None:
         """获取特征图。"""
         return self.feature_graph
+
+    def get_input_dim_from_spec(self) -> int:
+        """
+        从 FeatureGraph.output_spec() 获取输入维度。
+
+        Returns:
+            int: 输入维度
+
+        Raises:
+            ValueError: 如果 feature_graph 未设置或无法推断维度
+        """
+        if self.feature_graph is None:
+            raise ValueError("feature_graph is required. Call setup_data() first.")
+
+        output_spec = self.feature_graph.output_spec()
+
+        # 优先使用 event-level 特征维度
+        if "event" in output_spec:
+            return output_spec["event"]["dim"]
+        elif "object" in output_spec:
+            # 如果没有 event-level，使用 object-level（需要展平）
+            object_dim = output_spec["object"]["dim"]
+            max_length = output_spec["object"]["max_length"]
+            return object_dim * max_length  # 展平后的维度
+        else:
+            raise ValueError("No features found in output_spec. Cannot infer input_dim.")
+
+    def get_input_key_from_spec(self) -> str:
+        """
+        从 FeatureGraph.output_spec() 获取输入键名。
+
+        Returns:
+            str: 输入键名（"event" 或 "object"）
+
+        Raises:
+            ValueError: 如果 feature_graph 未设置或无法推断键名
+        """
+        if self.feature_graph is None:
+            raise ValueError("feature_graph is required. Call setup_data() first.")
+
+        output_spec = self.feature_graph.output_spec()
+
+        # 优先使用 event-level 特征
+        if "event" in output_spec:
+            return "event"
+        elif "object" in output_spec:
+            return "object"
+        else:
+            raise ValueError("No features found in output_spec. Cannot infer input_key.")
+
+    def get_pipeline_state(self) -> PipelineState | None:
+        """
+        获取 PipelineState。
+
+        Returns:
+            PipelineState: Pipeline 状态（如果已创建）
+        """
+        return self.pipeline_state
+
+    def save_pipeline_state(self, path: str | Path) -> None:
+        """
+        保存 PipelineState 到文件。
+
+        Args:
+            path: 保存路径
+        """
+        if self.pipeline_state is None:
+            raise ValueError("PipelineState not created. Call setup_model() first.")
+        self.pipeline_state.save(path)

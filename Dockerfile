@@ -1,0 +1,55 @@
+# BambooHepMl Dockerfile
+# GPU-ready, reproducible environment for HEP ML training and inference
+
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    python3-dev \
+    git \
+    build-essential \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symlink for python
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first (for better caching)
+COPY requirements.txt /app/
+COPY pyproject.toml /app/
+COPY setup.py /app/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY bamboohepml/ /app/bamboohepml/
+COPY configs/ /app/configs/
+COPY examples/ /app/examples/
+
+# Install the package
+RUN pip install --no-cache-dir -e .
+
+# Create directories for outputs
+RUN mkdir -p /app/outputs /app/logs /app/data
+
+# Expose port for serving (if using FastAPI)
+EXPOSE 8000
+
+# Default command
+CMD ["python", "-m", "bamboohepml.cli", "--help"]

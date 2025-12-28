@@ -1,11 +1,14 @@
 """
 数据配置模块
 
-完全借鉴 weaver-core 的 DataConfig 类，提供：
-- YAML 配置驱动的特征定义
-- 变量表达式系统
-- 输入/标签/权重配置
-- 预处理参数管理
+重构后的 DataConfig 类，只负责数据源配置：
+- 数据源路径和树名
+- 选择条件（selection）
+- 标签定义（labels）
+- 权重配置（weights）
+- 观察者变量（observers）
+
+注意：特征定义已迁移到 FeatureGraph，不再在 DataConfig 中定义。
 """
 
 import copy
@@ -15,23 +18,6 @@ import yaml
 
 from .logger import _logger
 from .tools import _get_variable_names
-
-
-def _as_list(x):
-    """将输入转换为列表。
-
-    Args:
-        x: 输入值。
-
-    Returns:
-        list: 列表形式的值。
-    """
-    if x is None:
-        return None
-    elif isinstance(x, (list, tuple)):
-        return x
-    else:
-        return [x]
 
 
 def _md5(fname):
@@ -56,11 +42,14 @@ class DataConfig:
     """
     数据配置类，用于存储数据加载器的配置。
 
-    完全借鉴 weaver-core 的设计，支持：
-    - Config-driven 特征定义
-    - expr 表达式生成新变量
-    - 自动变量计算、标准化、裁剪、padding
-    - 支持 sequence / mask / transformer 输入
+    重构后只负责数据源配置，不再定义特征：
+    - 数据源：treename, branch_magic, file_magic
+    - 选择条件：selection, test_time_selection
+    - 标签：labels（用于训练目标）
+    - 权重：weights（用于样本重加权）
+    - 观察者：observers, monitor_variables
+
+    特征定义现在由 FeatureGraph 管理（通过 features.yaml）。
     """
 
     def __init__(self, print_info=True, **kwargs):
@@ -70,18 +59,26 @@ class DataConfig:
             "file_magic": None,
             "selection": None,
             "test_time_selection": None,
-            "preprocess": {"method": "manual", "data_fraction": 0.1, "params": None},
-            "new_variables": {},
-            "inputs": {},
             "labels": {},
             "observers": [],
             "monitor_variables": [],
             "weights": None,
         }
 
+        # 检查是否传入了废弃的参数
+        deprecated_params = ["new_variables", "inputs", "preprocess"]
+        for param in deprecated_params:
+            if param in kwargs and kwargs[param] is not None:
+                _logger.warning(
+                    f"Parameter '{param}' is deprecated. "
+                    f"Feature definitions should now be in features.yaml via FeatureGraph. "
+                    f"Ignoring '{param}' parameter."
+                )
+                kwargs.pop(param)
+
         for k, v in kwargs.items():
             if v is not None:
-                if isinstance(opts[k], dict):
+                if isinstance(opts.get(k), dict):
                     opts[k].update(v)
                 else:
                     opts[k] = v
@@ -90,90 +87,53 @@ class DataConfig:
         if print_info:
             _logger.debug(opts)
 
+        # 分支加载集合（用于确定需要从 ROOT/Parquet/HDF5 加载哪些原始分支）
         self.train_load_branches = set()
         self.train_aux_branches = set()
         self.test_load_branches = set()
         self.test_aux_branches = set()
 
+        # 选择条件
         self.selection = opts["selection"]
         self.test_time_selection = opts["test_time_selection"] if opts["test_time_selection"] else self.selection
-        self.var_funcs = copy.deepcopy(opts["new_variables"])
 
-        # 预处理配置
-        self.preprocess = opts["preprocess"]
-        self._auto_standardization = opts["preprocess"]["method"].lower().startswith("auto")
-        self._missing_standardization_info = False
-        self.preprocess_params = opts["preprocess"]["params"] if opts["preprocess"]["params"] is not None else {}
-
-        # 输入配置
-        self.input_names = tuple(opts["inputs"].keys())
-        self.input_dicts = {k: [] for k in self.input_names}
-        self.input_shapes = {}
-
-        for k, o in opts["inputs"].items():
-            self.input_shapes[k] = (-1, len(o["vars"]), o["length"])
-            for v in o["vars"]:
-                v = _as_list(v)
-                self.input_dicts[k].append(v[0])
-
-                if opts["preprocess"]["params"] is None:
-
-                    def _get(idx, default):
-                        try:
-                            return v[idx]
-                        except IndexError:
-                            return default
-
-                    params = {
-                        "length": o["length"],
-                        "pad_mode": o.get("pad_mode", "constant").lower(),
-                        "center": _get(1, "auto" if self._auto_standardization else None),
-                        "scale": _get(2, 1),
-                        "min": _get(3, -5),
-                        "max": _get(4, 5),
-                        "pad_value": _get(5, 0),
-                    }
-
-                    if v[0] in self.preprocess_params and params != self.preprocess_params[v[0]]:
-                        raise RuntimeError(f"变量 {v[0]} 的信息不兼容，已有: \n  {str(self.preprocess_params[v[0]])}\n现在得到:\n  {str(params)}")
-
-                    if k.endswith("_mask") and params["pad_mode"] != "constant":
-                        raise RuntimeError("掩码输入 `%s` 的 `pad_mode` 必须设置为 `constant`" % k)
-
-                    if params["center"] == "auto":
-                        self._missing_standardization_info = True
-
-                    self.preprocess_params[v[0]] = params
+        # 变量函数（仅用于 labels/weights/selection 的表达式，不是特征）
+        self.var_funcs = {}
 
         # 标签配置
-        self.label_type = opts["labels"]["type"]
-        self.label_value = opts["labels"]["value"]
-        if self.label_type == "simple":
-            assert isinstance(self.label_value, list)
-            self.label_names = ("_label_",)
-            label_exprs = ["ak.to_numpy(%s)" % k for k in self.label_value]
-            self.register("_label_", "np.argmax(np.stack([%s], axis=1), axis=1)" % (",".join(label_exprs)))
-            self.register("_labelcheck_", "np.sum(np.stack([%s], axis=1), axis=1)", "train")
+        self.label_type = opts["labels"].get("type") if opts["labels"] else None
+        self.label_value = opts["labels"].get("value") if opts["labels"] else None
+
+        if self.label_type and self.label_value:
+            if self.label_type == "simple":
+                assert isinstance(self.label_value, list)
+                self.label_names = ("_label_",)
+                # 构建标签表达式（用于从原始分支计算标签）
+                label_exprs = ["ak.to_numpy(%s)" % k for k in self.label_value]
+                self.register("_label_", "np.argmax(np.stack([%s], axis=1), axis=1)" % (",".join(label_exprs)))
+                self.register("_labelcheck_", "np.sum(np.stack([%s], axis=1), axis=1)", "train")
+            else:
+                self.label_names = tuple(self.label_value.keys())
+                self.register(self.label_value)
         else:
-            self.label_names = tuple(self.label_value.keys())
-            self.register(self.label_value)
+            self.label_names = tuple()
 
         # 权重配置
         self.basewgt_name = "_basewgt_"
         self.weight_name = None
         if opts["weights"] is not None:
             self.weight_name = "_weight_"
-            self.use_precomputed_weights = opts["weights"]["use_precomputed_weights"]
+            self.use_precomputed_weights = opts["weights"].get("use_precomputed_weights", False)
             if self.use_precomputed_weights:
                 self.register(self.weight_name, "*".join(opts["weights"]["weight_branches"]), "train")
             else:
-                self.reweight_method = opts["weights"]["reweight_method"]
+                self.reweight_method = opts["weights"].get("reweight_method")
                 self.reweight_basewgt = opts["weights"].get("reweight_basewgt", None)
                 if self.reweight_basewgt:
                     self.register(self.basewgt_name, self.reweight_basewgt, "train")
-                self.reweight_branches = tuple(opts["weights"]["reweight_vars"].keys())
-                self.reweight_bins = tuple(opts["weights"]["reweight_vars"].values())
-                self.reweight_classes = tuple(opts["weights"]["reweight_classes"])
+                self.reweight_branches = tuple(opts["weights"].get("reweight_vars", {}).keys())
+                self.reweight_bins = tuple(opts["weights"].get("reweight_vars", {}).values())
+                self.reweight_classes = tuple(opts["weights"].get("reweight_classes", []))
                 self.register(self.reweight_branches + self.reweight_classes, to="train")
                 self.class_weights = opts["weights"].get("class_weights", None)
                 if self.class_weights is None:
@@ -202,20 +162,14 @@ class DataConfig:
             def _log(msg, *args, **kwargs):
                 _logger.info(msg, *args, **kwargs)
 
-            _log("预处理配置: %s", str(self.preprocess))
             _log("选择条件: %s", str(self.selection))
             _log("测试时选择条件: %s", str(self.test_time_selection))
-            _log("变量函数:\n - %s", "\n - ".join(str(it) for it in self.var_funcs.items()))
-            _log("输入名称: %s", str(self.input_names))
-            _log("输入字典:\n - %s", "\n - ".join(str(it) for it in self.input_dicts.items()))
-            _log("输入形状:\n - %s", "\n - ".join(str(it) for it in self.input_shapes.items()))
-            _log("预处理参数:\n - %s", "\n - ".join(str(it) for it in self.preprocess_params.items()))
             _log("标签名称: %s", str(self.label_names))
             _log("观察者名称: %s", str(self.observer_names))
             _log("监控变量: %s", str(self.monitor_variables))
             if opts["weights"] is not None:
                 if self.use_precomputed_weights:
-                    _log("权重: %s" % self.var_funcs[self.weight_name])
+                    _log("权重: %s" % self.var_funcs.get(self.weight_name, "N/A"))
                 else:
                     for k in [
                         "reweight_method",
@@ -227,19 +181,18 @@ class DataConfig:
                         "reweight_threshold",
                         "reweight_discard_under_overflow",
                     ]:
-                        _log(f"{k}: {getattr(self, k)}")
+                        if hasattr(self, k):
+                            _log(f"{k}: {getattr(self, k)}")
 
-        # 注册依赖
+        # 注册依赖（用于确定需要加载哪些原始分支）
         if self.selection:
             self.register(_get_variable_names(self.selection), to="train")
         if self.test_time_selection:
             self.register(_get_variable_names(self.test_time_selection), to="test")
-        for names in self.input_dicts.values():
-            self.register(names)
         self.register(self.observer_names, to="test")
         self.register(self.monitor_variables)
 
-        # 解析依赖关系
+        # 解析依赖关系（用于确定 aux_branches，即需要计算的变量）
         func_vars = set(self.var_funcs.keys())
         for load_branches, aux_branches in (self.train_load_branches, self.train_aux_branches), (
             self.test_load_branches,
@@ -266,10 +219,10 @@ class DataConfig:
             _logger.debug("测试辅助分支:\n  %s", ", ".join(sorted(self.test_aux_branches)))
 
     def __getattr__(self, name):
-        return self.options[name]
+        return self.options.get(name)
 
     def register(self, name, expr=None, to="both"):
-        """注册变量或表达式。
+        """注册变量或表达式（仅用于 labels/weights/selection，不用于特征）。
 
         Args:
             name: 变量名（可以是字符串、列表、字典）。
@@ -321,17 +274,30 @@ class DataConfig:
         with open(fp) as f:
             _opts = yaml.safe_load(f)
             options = copy.deepcopy(_opts)
+
+        # 移除废弃的参数
+        for deprecated in ["new_variables", "inputs", "preprocess"]:
+            if deprecated in options:
+                _logger.warning(f"Deprecated parameter '{deprecated}' found in config file. Ignoring it.")
+                options.pop(deprecated)
+
         if not load_observers:
             options["observers"] = None
         if not load_reweight_info:
             options["weights"] = None
         if extra_selection:
-            options["selection"] = "({}) & ({})".format(_opts["selection"], extra_selection)
+            if options.get("selection"):
+                options["selection"] = "({}) & ({})".format(_opts["selection"], extra_selection)
+            else:
+                options["selection"] = extra_selection
         if extra_test_selection:
             if "test_time_selection" not in options or options["test_time_selection"] is None:
-                options["test_time_selection"] = "({}) & ({})".format(_opts["selection"], extra_test_selection)
+                if options.get("selection"):
+                    options["test_time_selection"] = "({}) & ({})".format(_opts.get("selection", ""), extra_test_selection)
+                else:
+                    options["test_time_selection"] = extra_test_selection
             else:
-                options["test_time_selection"] = "({}) & ({})".format(_opts["test_time_selection"], extra_test_selection)
+                options["test_time_selection"] = "({}) & ({})".format(options["test_time_selection"], extra_test_selection)
         return cls(**options)
 
     def copy(self):
@@ -347,28 +313,3 @@ class DataConfig:
 
     def __deepcopy__(self, memo):
         return self.copy()
-
-    def export_json(self, fp):
-        """导出为 JSON 格式（用于推理）。
-
-        Args:
-            fp (str): 文件路径。
-        """
-        import json
-
-        j = {"output_names": self.label_value, "input_names": self.input_names}
-        for k, v in self.input_dicts.items():
-            j[k] = {"var_names": v, "var_infos": {}}
-            for var_name in v:
-                j[k]["var_length"] = self.preprocess_params[var_name]["length"]
-                info = self.preprocess_params[var_name]
-                j[k]["var_infos"][var_name] = {
-                    "median": 0 if info["center"] is None else info["center"],
-                    "norm_factor": info["scale"],
-                    "replace_inf_value": 0,
-                    "lower_bound": -1e32 if info["center"] is None else info["min"],
-                    "upper_bound": 1e32 if info["center"] is None else info["max"],
-                    "pad": info["pad_value"],
-                }
-        with open(fp, "w") as f:
-            json.dump(j, f, indent=2)

@@ -262,11 +262,12 @@ conda activate bamboohepml  # 根据需要修改
 
     def submit_export(
         self,
-        pipeline_config_path: str,
         model_path: str,
         output_path: str,
+        metadata_path: Optional[str] = None,
         input_shape: Optional[tuple] = None,
         opset_version: int = 11,
+        pipeline_config_path: Optional[str] = None,  # 向后兼容，已废弃
         **kwargs,
     ) -> str:
         """提交导出任务到 SLURM。"""
@@ -275,15 +276,20 @@ conda activate bamboohepml  # 根据需要修改
         # 构建命令
         cmd_parts = [
             "bamboohepml export",
-            f"-c {pipeline_config_path}",
             f"-m {model_path}",
             f"-o {output_path}",
             f"--opset-version {opset_version}",
         ]
 
+        if metadata_path:
+            cmd_parts.append(f"--metadata {metadata_path}")
+
         if input_shape:
             input_shape_str = ",".join(map(str, input_shape))
             cmd_parts.append(f"--input-shape {input_shape_str}")
+
+        if pipeline_config_path:  # 向后兼容
+            cmd_parts.append(f"-c {pipeline_config_path}")
 
         cmd_parts.append("--scheduler local")
 

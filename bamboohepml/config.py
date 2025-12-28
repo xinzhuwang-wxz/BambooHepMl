@@ -14,11 +14,11 @@ import sys
 from pathlib import Path
 
 # MLflow 延迟导入（避免 protobuf 版本冲突）
-_mlflow = None
+mlflow = None
 try:
-    import mlflow
+    import mlflow as _mlflow_module
 
-    _mlflow = mlflow
+    mlflow = _mlflow_module
 except ImportError:
     # MLflow 不可用，但不影响基本功能
     pass
@@ -37,12 +37,12 @@ except OSError:
     Path(EFS_DIR).mkdir(parents=True, exist_ok=True)
 
 # MLflow 配置（仅在可用时设置）
-if _mlflow is not None:
+if mlflow is not None:
     MODEL_REGISTRY = Path(f"{EFS_DIR}/mlflow")
     Path(MODEL_REGISTRY).mkdir(parents=True, exist_ok=True)
     MLFLOW_TRACKING_URI = "file://" + str(MODEL_REGISTRY.absolute())
     try:
-        _mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+        mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     except Exception:
         # MLflow 配置失败，但不影响基本功能
         pass
@@ -94,4 +94,4 @@ logging.config.dictConfig(logging_config)
 logger = logging.getLogger()
 
 # 导出常用配置
-__all__ = ["logger", "EFS_DIR", "MLFLOW_TRACKING_URI", "MODEL_REGISTRY"]
+__all__ = ["logger", "EFS_DIR", "MLFLOW_TRACKING_URI", "MODEL_REGISTRY", "mlflow"]

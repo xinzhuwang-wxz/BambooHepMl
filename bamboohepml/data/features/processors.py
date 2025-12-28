@@ -260,22 +260,31 @@ class FeatureProcessor:
                 value=pad_config.get("value", 0.0),
             )
 
-    def process(self, value: Any, fit_normalizer: bool = False) -> Any:
+    def fit(self, value: Any) -> "FeatureProcessor":
+        """拟合处理器（主要是 Normalizer）。
+
+        Args:
+            value: 原始特征值
+
+        Returns:
+            FeatureProcessor: self
+        """
+        if self.normalizer and self.normalizer.method == "auto":
+            self.normalizer.fit(value)
+        return self
+
+    def process(self, value: Any) -> Any:
         """处理特征值。
 
         Args:
             value: 原始特征值
-            fit_normalizer (bool): 是否拟合标准化器（仅第一次）。默认为 False。
 
         Returns:
             处理后的特征值
         """
         # 1. 标准化
         if self.normalizer:
-            if fit_normalizer and self.normalizer.method == "auto":
-                value = self.normalizer.fit_transform(value)
-            else:
-                value = self.normalizer.transform(value)
+            value = self.normalizer.transform(value)
 
         # 2. 裁剪
         if self.clipper:
