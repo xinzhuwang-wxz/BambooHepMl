@@ -89,7 +89,28 @@ class OperatorRegistry:
         self.register("log", lambda x: np.log(x) if isinstance(x, np.ndarray) else ak.log(x))
         self.register("log1p", lambda x: np.log1p(x) if isinstance(x, np.ndarray) else ak.log1p(x))
         self.register("exp", lambda x: np.exp(x) if isinstance(x, np.ndarray) else ak.exp(x))
-        self.register("sqrt", lambda x: np.sqrt(ak.to_numpy(x)) if isinstance(x, ak.Array) else np.sqrt(x))
+        # sqrt: 对于 jagged array，使用 ak 的逐元素操作
+        def sqrt_func(x):
+            if isinstance(x, ak.Array):
+                # 对于 jagged array，使用 ak 的逐元素操作保持结构
+                # 使用 ak.values_astype 和 ak.Array 来保持结构
+                try:
+                    # Try using ak's vectorized operations if available
+                    if hasattr(ak, "sqrt"):
+                        return ak.sqrt(x)
+                    else:
+                        # Fallback: use list comprehension for jagged arrays
+                        # This preserves the jagged structure
+                        return ak.Array([np.sqrt(item) if np.isscalar(item) else np.sqrt(item) for item in x])
+                except Exception:
+                    # Final fallback: flatten, compute, unflatten
+                    flat = ak.flatten(x, axis=None)
+                    sqrt_flat = np.sqrt(ak.to_numpy(flat))
+                    counts = ak.num(x)
+                    return ak.unflatten(ak.Array(sqrt_flat), counts)
+            return np.sqrt(x)
+
+        self.register("sqrt", sqrt_func)
         self.register("abs", lambda x: np.abs(ak.to_numpy(x)) if isinstance(x, ak.Array) else np.abs(x))
         self.register("sin", lambda x: np.sin(ak.to_numpy(x)) if isinstance(x, ak.Array) else np.sin(x))
         self.register("cos", lambda x: np.cos(ak.to_numpy(x)) if isinstance(x, ak.Array) else np.cos(x))

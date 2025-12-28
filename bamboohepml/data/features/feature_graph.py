@@ -383,6 +383,8 @@ class FeatureGraph:
                 dependencies.update(deps)
 
             # 从 source 提取依赖（如果是特征名）
+            # 注意：source 通常是原始数据字段（如 "Jet", "met"），不是特征名
+            # 所以不应该添加到依赖中，除非它确实是特征名
             source = feature_def.get("source", [])
             if isinstance(source, str):
                 if source in features:
@@ -391,10 +393,21 @@ class FeatureGraph:
                 for s in source:
                     if s in features:
                         dependencies.add(s)
+            # 不要将 source 添加到依赖中，除非它是特征名
 
-            # 显式依赖
+            # 显式依赖（只保留在特征列表中的依赖）
             if "dependencies" in feature_def:
-                dependencies.update(feature_def["dependencies"])
+                explicit_deps = feature_def["dependencies"]
+                if isinstance(explicit_deps, list):
+                    for dep in explicit_deps:
+                        if dep in features:  # 只添加在特征列表中的依赖
+                            dependencies.add(dep)
+                elif isinstance(explicit_deps, str):
+                    if explicit_deps in features:
+                        dependencies.add(explicit_deps)
+
+            # 过滤：只保留在特征列表中的依赖（排除原始数据字段如 "Jet", "met"）
+            dependencies = {dep for dep in dependencies if dep in features}
 
             # 添加边
             for dep in dependencies:

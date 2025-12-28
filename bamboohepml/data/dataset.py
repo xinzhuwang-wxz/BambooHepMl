@@ -515,9 +515,17 @@ class TransformerDataset(HEPDataset):
         for label_name in self.data_config.label_names:
             if label_name in sample:
                 label_data = sample[label_name]
-                if isinstance(label_data, ak.Array):
+                if isinstance(label_data, torch.Tensor):
+                    # Already a tensor, just use it
+                    output[label_name] = label_data
+                elif isinstance(label_data, ak.Array):
                     label_data = ak.to_numpy(label_data)
-                output[label_name] = torch.from_numpy(label_data.astype(np.int64))
+                    output[label_name] = torch.from_numpy(label_data.astype(np.int64))
+                elif isinstance(label_data, np.ndarray):
+                    output[label_name] = torch.from_numpy(label_data.astype(np.int64))
+                else:
+                    # Scalar or other type
+                    output[label_name] = torch.tensor(label_data, dtype=torch.int64)
 
         return output
 

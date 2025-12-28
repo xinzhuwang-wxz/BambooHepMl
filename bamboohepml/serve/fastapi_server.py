@@ -163,10 +163,20 @@ def create_app(
             # 转换为 tensor
             features_tensor = torch.tensor(request.features, dtype=torch.float32)
 
-            # 创建临时 dataloader
-            from torch.utils.data import DataLoader, TensorDataset
+            # 创建临时 dataloader（使用字典格式）
+            from torch.utils.data import DataLoader, Dataset
 
-            dataset = TensorDataset(features_tensor)
+            class DictDataset(Dataset):
+                def __init__(self, features):
+                    self.features = features
+
+                def __len__(self):
+                    return len(self.features)
+
+                def __getitem__(self, idx):
+                    return {"features": self.features[idx]}
+
+            dataset = DictDataset(features_tensor)
             dataloader = DataLoader(dataset, batch_size=len(request.features))
 
             # 预测
@@ -206,10 +216,20 @@ def create_app(
             # 转换为 tensor
             features_tensor = torch.tensor(features_list, dtype=torch.float32)
 
-            # 创建临时 dataloader
-            from torch.utils.data import DataLoader, TensorDataset
+            # 创建临时 dataloader（使用字典格式）
+            from torch.utils.data import DataLoader
 
-            dataset = TensorDataset(features_tensor)
+            class DictDataset:
+                def __init__(self, features):
+                    self.features = features
+
+                def __len__(self):
+                    return len(self.features)
+
+                def __getitem__(self, idx):
+                    return {"features": self.features[idx]}
+
+            dataset = DictDataset(features_tensor)
             dataloader = DataLoader(dataset, batch_size=len(features_list))
 
             # 预测

@@ -170,7 +170,12 @@ def test_padding_mask():
         print(f"Padding 后形状: {padded.shape}")
 
     # 生成 mask
-    mask = (padded != 0).any(axis=1)  # 假设 padding 值为 0
+    # Convert to numpy first if needed
+    if isinstance(padded, ak.Array):
+        padded_np = ak.to_numpy(padded)
+    else:
+        padded_np = padded
+    mask = (padded_np != 0).any(axis=1)  # 假设 padding 值为 0
     print(f"Mask 形状: {mask.shape}")
     print(f"Mask (事件 0): {mask[0]}")
     print(f"Mask (事件 1): {mask[1]}")
