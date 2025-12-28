@@ -62,8 +62,9 @@ jobs:
           pip install -e ".[test]"
 
       - name: Run unit tests
+        timeout-minutes: 15
         run: |
-          pytest tests/ -v --cov=bamboohepml --cov-report=xml --cov-report=html -m "not slow and not integration"
+          pytest tests/ -v --cov=bamboohepml --cov-report=xml --cov-report=html -m "not slow and not integration" --maxfail=5
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
@@ -92,5 +93,6 @@ jobs:
           pip install -e ".[test]"
 
       - name: Run integration tests
+        timeout-minutes: 30
         run: |
-          pytest tests/ -v -m integration || (echo "No integration tests found, skipping..." && exit 0)
+          pytest tests/ -v -m integration --maxfail=3 || (echo "No integration tests found, skipping..." && exit 0)
