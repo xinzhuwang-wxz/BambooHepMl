@@ -1,5 +1,4 @@
 """
-from __future__ import annotations
 训练任务
 
 借鉴 Made-With-ML 的训练流程，支持：
@@ -8,6 +7,8 @@ from __future__ import annotations
 - TensorBoard 日志
 - Checkpoint 管理
 """
+
+from __future__ import annotations
 
 import json
 import tempfile

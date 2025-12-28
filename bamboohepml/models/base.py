@@ -1,5 +1,4 @@
 """
-from __future__ import annotations
 模型基类
 
 定义任务无关的模型接口，支持：
@@ -7,6 +6,8 @@ from __future__ import annotations
 - Finetune（冻结/解冻层）
 - 模型保存和加载
 """
+
+from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod

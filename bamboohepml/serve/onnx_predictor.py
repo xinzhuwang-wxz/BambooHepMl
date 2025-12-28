@@ -1,9 +1,10 @@
 """
-from __future__ import annotations
 ONNX 推理接口
 
 提供 ONNX 模型的推理功能。
 """
+
+from __future__ import annotations
 
 from typing import Any
 

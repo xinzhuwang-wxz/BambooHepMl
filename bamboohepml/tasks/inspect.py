@@ -1,11 +1,12 @@
 """
-from __future__ import annotations
 检查任务
 
 支持：
 - 数据检查（统计信息、分布）
 - 特征检查（依赖关系、计算顺序）
 """
+
+from __future__ import annotations
 
 import json
 from pathlib import Path

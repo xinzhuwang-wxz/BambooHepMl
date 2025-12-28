@@ -1,5 +1,4 @@
 """
-from __future__ import annotations
 Dataset 类
 
 提供：
@@ -8,6 +7,8 @@ Dataset 类
 - 支持 transformer 输入格式
 - 与特征系统集成
 """
+
+from __future__ import annotations
 
 import copy
 from functools import partial

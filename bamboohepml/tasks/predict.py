@@ -1,5 +1,4 @@
 """
-from __future__ import annotations
 预测任务
 
 支持：
@@ -7,6 +6,8 @@ from __future__ import annotations
 - 概率预测
 - 结果保存
 """
+
+from __future__ import annotations
 
 import json
 from pathlib import Path

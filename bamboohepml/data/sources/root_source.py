@@ -1,7 +1,8 @@
 """
-from __future__ import annotations
 ROOT 数据源实现
 """
+
+from __future__ import annotations
 
 import math
 

@@ -1,5 +1,4 @@
 """
-from __future__ import annotations
 统一 Trainer
 
 支持：
@@ -8,6 +7,8 @@ from __future__ import annotations
 - Callback 系统（logging / early stop）
 - 多任务 Loss
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Callable

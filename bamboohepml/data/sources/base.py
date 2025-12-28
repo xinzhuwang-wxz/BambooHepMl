@@ -1,9 +1,10 @@
 """
-from __future__ import annotations
 数据源基类
 
 定义数据源的抽象接口，实现数据源与特征系统的解耦。
 """
+
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass

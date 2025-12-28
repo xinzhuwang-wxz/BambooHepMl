@@ -1,5 +1,4 @@
 """
-from __future__ import annotations
 特征依赖图（DAG）模块
 
 提供：
@@ -8,6 +7,8 @@ from __future__ import annotations
 - 拓扑排序和循环检测
 - 从 YAML 配置自动构建
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -366,7 +367,7 @@ class FeatureGraph:
         return "\n".join(lines)
 
     @classmethod
-    def from_feature_defs(cls, features: dict[str, dict], expression_engine, enable_cache: bool = True) -> "FeatureGraph":
+    def from_feature_defs(cls, features: dict[str, dict], expression_engine, enable_cache: bool = True) -> FeatureGraph:
         """从特征定义构建图。
 
         Args:
@@ -433,7 +434,7 @@ class FeatureGraph:
         return graph
 
     @classmethod
-    def from_yaml(cls, yaml_path: str, expression_engine, enable_cache: bool = True) -> "FeatureGraph":
+    def from_yaml(cls, yaml_path: str, expression_engine, enable_cache: bool = True) -> FeatureGraph:
         """从 YAML 配置文件构建图。
 
         Args:

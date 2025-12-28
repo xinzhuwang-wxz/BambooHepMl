@@ -1,9 +1,10 @@
 """
-from __future__ import annotations
 Ray Serve 集成
 
 使用 Ray Serve 部署模型服务。
 """
+
+from __future__ import annotations
 
 from http import HTTPStatus
 from typing import Any
