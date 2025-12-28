@@ -5,7 +5,7 @@ Pipeline Orchestrator
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -42,12 +42,12 @@ class PipelineOrchestrator:
         self.feature_graph = None
         self.expression_engine = None
 
-    def _load_config(self) -> Dict[str, Any]:
+    def _load_config(self) -> dict[str, Any]:
         """加载 pipeline.yaml 配置。"""
         if not self.pipeline_config_path.exists():
             raise FileNotFoundError(f"Pipeline config not found: {self.pipeline_config_path}")
 
-        with open(self.pipeline_config_path, "r") as f:
+        with open(self.pipeline_config_path) as f:
             config = yaml.safe_load(f)
 
         logger.info(f"Loaded pipeline config from {self.pipeline_config_path}")
@@ -137,7 +137,7 @@ class PipelineOrchestrator:
         logger.info(f"Model '{model_name}' created with params: {model_kwargs}")
         return model
 
-    def get_train_config(self) -> Dict[str, Any]:
+    def get_train_config(self) -> dict[str, Any]:
         """
         获取训练配置。
 
@@ -148,7 +148,7 @@ class PipelineOrchestrator:
         self.train_config = train_config
         return train_config
 
-    def get_config(self) -> Dict[str, Any]:
+    def get_config(self) -> dict[str, Any]:
         """
         获取完整配置。
 
@@ -161,7 +161,7 @@ class PipelineOrchestrator:
         """获取 DataConfig。"""
         return self.data_config
 
-    def get_model_config(self) -> Optional[Dict[str, Any]]:
+    def get_model_config(self) -> Optional[dict[str, Any]]:
         """获取模型配置。"""
         return self.model_config
 

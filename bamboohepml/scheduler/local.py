@@ -4,7 +4,7 @@
 直接在本地执行任务，不使用集群调度系统。
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ..config import logger
 from ..tasks import export_task, inspect_task, predict_task, train_task
@@ -30,7 +30,7 @@ class LocalScheduler(BaseScheduler):
         num_workers: int = 1,
         gpu_per_worker: int = 0,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """提交训练任务（本地执行）。"""
         logger.info("Using Local Scheduler for training")
 
@@ -68,7 +68,7 @@ class LocalScheduler(BaseScheduler):
 
     def submit_export(
         self, pipeline_config_path: str, model_path: str, output_path: str, input_shape: Optional[tuple] = None, opset_version: int = 11, **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """提交导出任务（本地执行）。"""
         logger.info("Using Local Scheduler for export")
 
@@ -88,7 +88,7 @@ class LocalScheduler(BaseScheduler):
         inspect_data: bool = True,
         inspect_features: bool = True,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """提交检查任务（本地执行）。"""
         logger.info("Using Local Scheduler for inspection")
 

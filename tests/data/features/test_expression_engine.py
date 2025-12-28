@@ -251,7 +251,7 @@ def test_feature_graph():
         "ht": {
             "expr": "sum(Jet.pt)",
             "type": "event",
-            "dependencies": ["Jet"],
+            # Note: "Jet" is not a feature, so it shouldn't be in dependencies
         },
         "met_ht_ratio": {
             "expr": "met / (ht + 1e-6)",

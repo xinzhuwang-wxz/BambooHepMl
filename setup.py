@@ -1,8 +1,10 @@
 """
 BambooHepMl 安装配置
 """
-from setuptools import setup, find_packages
+
 from pathlib import Path
+
+from setuptools import find_packages, setup
 
 # 读取 README
 readme_file = Path(__file__).parent / "README.md"
@@ -57,4 +59,3 @@ setup(
         "Topic :: Scientific/Engineering :: Physics",
     ],
 )
-

@@ -51,4 +51,3 @@ pytest-xdist>=3.0.0
 
 # Development
 pre-commit>=3.2.0
-

@@ -132,5 +132,3 @@ pre-commit run --all-files
 ## 许可证
 
 MIT License
-
-

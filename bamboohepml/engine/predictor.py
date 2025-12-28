@@ -7,7 +7,7 @@ Predictor 类
 - 多任务预测
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import torch
 from torch.utils.data import DataLoader
@@ -44,7 +44,7 @@ class Predictor:
         self,
         dataloader: DataLoader,
         return_probabilities: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         预测。
 
@@ -97,7 +97,7 @@ class Predictor:
 
         return results
 
-    def predict_proba(self, dataloader: DataLoader) -> List[Dict[str, Any]]:
+    def predict_proba(self, dataloader: DataLoader) -> list[dict[str, Any]]:
         """
         预测概率（仅分类任务）。
 

@@ -4,7 +4,7 @@
 提供统一的接口来管理 MLflow 和 TensorBoard。
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..engine.callbacks import MLflowCallback, TensorBoardCallback
 
@@ -70,7 +70,7 @@ class ExperimentTracker:
         else:
             self.tensorboard_callback = None
 
-    def start_run(self, config: Optional[Dict[str, Any]] = None, model=None):
+    def start_run(self, config: Optional[dict[str, Any]] = None, model=None):
         """
         开始实验 run。
 
@@ -87,7 +87,7 @@ class ExperimentTracker:
         for callback in self.callbacks:
             callback.on_train_begin(logs)
 
-    def log_metrics(self, metrics: Dict[str, float], step: int):
+    def log_metrics(self, metrics: dict[str, float], step: int):
         """
         记录指标。
 
@@ -109,7 +109,7 @@ class ExperimentTracker:
         if self.mlflow_callback:
             self.mlflow_callback.log_artifact(artifact_path, artifact_path_in_mlflow)
 
-    def end_run(self, logs: Optional[Dict[str, Any]] = None):
+    def end_run(self, logs: Optional[dict[str, Any]] = None):
         """
         结束实验 run。
 
@@ -124,6 +124,6 @@ class ExperimentTracker:
         # 简化实现：返回 None，实际应该从模型配置推断
         return None
 
-    def get_callbacks(self) -> List:
+    def get_callbacks(self) -> list:
         """获取所有 callbacks（用于 Trainer）。"""
         return self.callbacks

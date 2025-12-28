@@ -163,7 +163,7 @@ def _build_weights(table, data_config, reweight_hists=None):
         return wgt
 
 
-class AutoStandardizer(object):
+class AutoStandardizer:
     """自动标准化器。
 
     用于计算变量标准化信息（中心值和缩放因子）。
@@ -293,7 +293,7 @@ class AutoStandardizer(object):
         return self._data_config
 
 
-class WeightMaker(object):
+class WeightMaker:
     """权重生成器。
 
     用于生成重加权信息。
@@ -410,7 +410,7 @@ class WeightMaker(object):
                 nonzero_vals = hist[hist > threshold_]
                 min_val, med_val = np.min(nonzero_vals), np.median(hist)
                 ref_val = np.percentile(nonzero_vals, self._data_config.reweight_threshold)
-                _logger.debug("label:%s, median=%f, min=%f, ref=%f, ref/min=%f" % (label, med_val, min_val, ref_val, ref_val / min_val))
+                _logger.debug(f"label:{label}, median={med_val:f}, min={min_val:f}, ref={ref_val:f}, ref/min={ref_val / min_val:f}")
                 wgt = np.clip(np.nan_to_num(ref_val / hist, posinf=0), 0, 1)
                 result[label] = wgt
                 class_events[label] = np.sum(raw_hists[label] * wgt) / classwgt

@@ -14,15 +14,8 @@ sys.path.insert(0, str(project_root))
 os.environ["PYTHONPATH"] = str(project_root) + os.pathsep + os.environ.get("PYTHONPATH", "")
 
 # 导入必须在路径设置之后
-import sys  # noqa: E402
 
-# For Python 3.8, skip ONNX-related imports to avoid onnxscript compatibility issues
-if sys.version_info < (3, 9):
-    # Prevent torch.onnx import which triggers onnxscript on Python 3.8
-    import os  # noqa: E402
-
-    os.environ["TORCH_DISABLE_ONNX"] = "1"
-
+# For Python 3.8, disable ONNX-related imports to avoid onnxscript compatibility issues
 import torch  # noqa: E402
 import torch.nn as nn  # noqa: E402
 from torch.utils.data import DataLoader, TensorDataset  # noqa: E402

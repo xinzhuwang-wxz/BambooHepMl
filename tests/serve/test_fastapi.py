@@ -25,6 +25,12 @@ def fastapi_app(sample_model_path):
         model_name="mlp_classifier",
         model_params={"input_dim": 10, "hidden_dims": [64, 32], "num_classes": 2},
     )
+    # Trigger startup event to load model
+    from fastapi.testclient import TestClient
+
+    client = TestClient(app)
+    # Access root to trigger startup
+    client.get("/")
     return app
 
 

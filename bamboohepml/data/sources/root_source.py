@@ -3,7 +3,7 @@ ROOT 数据源实现
 """
 
 import math
-from typing import List, Optional
+from typing import Optional
 
 import awkward as ak
 
@@ -14,7 +14,7 @@ from .base import DataSource
 class ROOTDataSource(DataSource):
     """ROOT 文件数据源。"""
 
-    def load_branches(self, branches: List[str]) -> ak.Array:
+    def load_branches(self, branches: list[str]) -> ak.Array:
         """加载指定的分支。
 
         Args:
@@ -38,7 +38,7 @@ class ROOTDataSource(DataSource):
                     # 确定树名
                     treename = self.config.treename
                     if treename is None:
-                        treenames = set([k.split(";")[0] for k, v in f.items() if getattr(v, "classname", "") == "TTree"])
+                        treenames = {k.split(";")[0] for k, v in f.items() if getattr(v, "classname", "") == "TTree"}
                         if len(treenames) == 1:
                             treename = treenames.pop()
                         else:
@@ -94,7 +94,7 @@ class ROOTDataSource(DataSource):
 
         return _concat(table)
 
-    def get_available_branches(self) -> List[str]:
+    def get_available_branches(self) -> list[str]:
         """获取可用的分支列表。
 
         Returns:
@@ -111,7 +111,7 @@ class ROOTDataSource(DataSource):
             with uproot.open(filepath) as f:
                 treename = self.config.treename
                 if treename is None:
-                    treenames = set([k.split(";")[0] for k, v in f.items() if getattr(v, "classname", "") == "TTree"])
+                    treenames = {k.split(";")[0] for k, v in f.items() if getattr(v, "classname", "") == "TTree"}
                     if len(treenames) == 1:
                         treename = treenames.pop()
                     else:
@@ -137,7 +137,7 @@ class ROOTDataSource(DataSource):
                 with uproot.open(filepath) as f:
                     treename = self.config.treename
                     if treename is None:
-                        treenames = set([k.split(";")[0] for k, v in f.items() if getattr(v, "classname", "") == "TTree"])
+                        treenames = {k.split(";")[0] for k, v in f.items() if getattr(v, "classname", "") == "TTree"}
                         if len(treenames) == 1:
                             treename = treenames.pop()
                         else:

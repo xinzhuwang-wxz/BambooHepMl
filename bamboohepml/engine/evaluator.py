@@ -7,7 +7,7 @@ Evaluator 类
 - 多任务评估
 """
 
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 import torch
@@ -41,7 +41,7 @@ class Evaluator:
         dataloader: DataLoader,
         loss_fn: Optional[torch.nn.Module] = None,
         device: Optional[torch.device] = None,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         评估模型。
 
@@ -121,7 +121,7 @@ class Evaluator:
 
         return metrics
 
-    def _compute_classification_metrics(self, predictions: np.ndarray, labels: np.ndarray) -> Dict[str, float]:
+    def _compute_classification_metrics(self, predictions: np.ndarray, labels: np.ndarray) -> dict[str, float]:
         """计算分类任务指标。"""
         try:
             from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
@@ -144,7 +144,7 @@ class Evaluator:
 
         return metrics
 
-    def _compute_regression_metrics(self, predictions: np.ndarray, labels: np.ndarray) -> Dict[str, float]:
+    def _compute_regression_metrics(self, predictions: np.ndarray, labels: np.ndarray) -> dict[str, float]:
         """计算回归任务指标。"""
         # 使用 numpy 计算回归指标（不依赖 sklearn）
         mse = float(np.mean((labels - predictions) ** 2))

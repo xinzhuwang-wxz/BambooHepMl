@@ -5,10 +5,9 @@ BambooHepMl CLI
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from .config import logger
 from .scheduler import LocalScheduler, SLURMScheduler

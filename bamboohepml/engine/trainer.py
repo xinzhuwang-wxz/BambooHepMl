@@ -9,7 +9,7 @@
 """
 
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -45,7 +45,7 @@ class Trainer:
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         device: Optional[torch.device] = None,
         task_type: str = "supervised",
-        callbacks: Optional[List[Callback]] = None,
+        callbacks: Optional[list[Callback]] = None,
     ):
         """
         初始化训练器。
@@ -126,7 +126,7 @@ class Trainer:
         else:
             raise ValueError(f"Unknown task type: {self.task_type}")
 
-    def train_epoch(self) -> Dict[str, float]:
+    def train_epoch(self) -> dict[str, float]:
         """
         训练一个 epoch。
 
@@ -187,7 +187,7 @@ class Trainer:
         avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
         return {"train_loss": avg_loss}
 
-    def validate(self) -> Dict[str, float]:
+    def validate(self) -> dict[str, float]:
         """
         验证。
 
@@ -204,7 +204,7 @@ class Trainer:
             device=self.device,
         )
 
-    def test(self) -> Dict[str, float]:
+    def test(self) -> dict[str, float]:
         """
         测试。
 
@@ -227,7 +227,7 @@ class Trainer:
         save_dir: Optional[str] = None,
         save_best: bool = True,
         monitor: str = "val_loss",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         训练模型。
 

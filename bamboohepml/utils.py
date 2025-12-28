@@ -10,7 +10,7 @@
 import json
 import os
 import random
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import torch
@@ -37,7 +37,7 @@ def set_seeds(seed: int = 42):
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-def load_dict(path: str) -> Dict:
+def load_dict(path: str) -> dict:
     """从 JSON 文件加载字典。
 
     Args:
@@ -51,7 +51,7 @@ def load_dict(path: str) -> Dict:
     return d
 
 
-def save_dict(d: Dict, path: str, cls: Any = None, sortkeys: bool = False) -> None:
+def save_dict(d: dict, path: str, cls: Any = None, sortkeys: bool = False) -> None:
     """将字典保存到指定位置。
 
     Args:
@@ -85,7 +85,7 @@ def pad_array(arr: np.ndarray, dtype=np.int32) -> np.ndarray:
     return padded_arr
 
 
-def collate_fn(batch: Dict[str, np.ndarray]) -> Dict[str, torch.Tensor]:
+def collate_fn(batch: dict[str, np.ndarray]) -> dict[str, torch.Tensor]:
     """将一批 numpy 数组转换为张量（带适当的填充）。
 
     Args:
@@ -125,7 +125,7 @@ def get_run_id(experiment_name: str, trial_id: str) -> str:
     return run.run_id
 
 
-def dict_to_list(data: Dict, keys: List[str]) -> List[Dict[str, Any]]:
+def dict_to_list(data: dict, keys: list[str]) -> list[dict[str, Any]]:
     """将字典转换为字典列表。
 
     Args:

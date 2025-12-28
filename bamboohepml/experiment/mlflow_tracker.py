@@ -4,7 +4,7 @@ MLflow 跟踪器
 提供 MLflow 专用的实验跟踪功能。
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ..config import MLFLOW_TRACKING_URI, logger
 
@@ -72,7 +72,7 @@ class MLflowTracker:
         experiment_name: str,
         metric: str = "val_loss",
         mode: str = "min",
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """
         获取最佳 run。
 
@@ -106,7 +106,7 @@ class MLflowTracker:
             logger.warning(f"Failed to get best run: {e}")
             return None
 
-    def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+    def get_run(self, run_id: str) -> Optional[dict[str, Any]]:
         """
         获取指定 run 的信息。
 

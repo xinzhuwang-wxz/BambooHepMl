@@ -11,7 +11,7 @@ Callback 系统
 import logging
 from abc import ABC
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from ..config import logger
 
@@ -29,27 +29,27 @@ class Callback(ABC):
     - on_batch_end: 每个 batch 结束时调用
     """
 
-    def on_train_begin(self, logs: Optional[Dict[str, Any]] = None):
+    def on_train_begin(self, logs: Optional[dict[str, Any]] = None):
         """训练开始时调用。"""
         pass
 
-    def on_train_end(self, logs: Optional[Dict[str, Any]] = None):
+    def on_train_end(self, logs: Optional[dict[str, Any]] = None):
         """训练结束时调用。"""
         pass
 
-    def on_epoch_begin(self, epoch: int, logs: Optional[Dict[str, Any]] = None):
+    def on_epoch_begin(self, epoch: int, logs: Optional[dict[str, Any]] = None):
         """每个 epoch 开始时调用。"""
         pass
 
-    def on_epoch_end(self, epoch: int, logs: Optional[Dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
         """每个 epoch 结束时调用。"""
         pass
 
-    def on_batch_begin(self, batch: int, logs: Optional[Dict[str, Any]] = None):
+    def on_batch_begin(self, batch: int, logs: Optional[dict[str, Any]] = None):
         """每个 batch 开始时调用。"""
         pass
 
-    def on_batch_end(self, batch: int, logs: Optional[Dict[str, Any]] = None):
+    def on_batch_end(self, batch: int, logs: Optional[dict[str, Any]] = None):
         """每个 batch 结束时调用。"""
         pass
 
@@ -70,7 +70,7 @@ class LoggingCallback(Callback):
         """
         self.log_level = log_level
 
-    def on_epoch_end(self, epoch: int, logs: Optional[Dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
         """记录 epoch 结束时的指标。"""
         if logs:
             metrics_str = ", ".join([f"{k}={v:.4f}" if isinstance(v, (int, float)) else f"{k}={v}" for k, v in logs.items()])
@@ -118,7 +118,7 @@ class EarlyStoppingCallback(Callback):
         """设置模型（用于恢复权重）。"""
         self.model = model
 
-    def on_train_begin(self, logs: Optional[Dict[str, Any]] = None):
+    def on_train_begin(self, logs: Optional[dict[str, Any]] = None):
         """初始化。"""
         self.wait = 0
         self.stopped_epoch = 0
@@ -126,7 +126,7 @@ class EarlyStoppingCallback(Callback):
         if self.model is not None:
             self.best_weights = None
 
-    def on_epoch_end(self, epoch: int, logs: Optional[Dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
         """检查是否需要早停。"""
         if logs is None or self.monitor not in logs:
             return
@@ -158,7 +158,7 @@ class EarlyStoppingCallback(Callback):
                 logger.info("Restoring best weights")
                 self.model.load_state_dict(self.best_weights)
 
-    def on_train_end(self, logs: Optional[Dict[str, Any]] = None):
+    def on_train_end(self, logs: Optional[dict[str, Any]] = None):
         """训练结束时恢复最佳权重。"""
         if self.stopped_epoch > 0:
             logger.info(f"Training stopped early at epoch {self.stopped_epoch}")
@@ -213,7 +213,7 @@ class MLflowCallback(Callback):
         except ImportError:
             logger.warning("MLflow not available, MLflowCallback will be disabled")
 
-    def on_train_begin(self, logs: Optional[Dict[str, Any]] = None):
+    def on_train_begin(self, logs: Optional[dict[str, Any]] = None):
         """开始 MLflow run，自动记录 config。"""
         if self.mlflow is None:
             return
@@ -249,7 +249,7 @@ class MLflowCallback(Callback):
         except Exception as e:
             logger.warning(f"Failed to start MLflow run: {e}")
 
-    def on_epoch_end(self, epoch: int, logs: Optional[Dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
         """自动记录 epoch 指标。"""
         if self.mlflow is None or logs is None:
             return
@@ -270,7 +270,7 @@ class MLflowCallback(Callback):
         except Exception as e:
             logger.warning(f"Failed to log metrics to MLflow: {e}")
 
-    def on_train_end(self, logs: Optional[Dict[str, Any]] = None):
+    def on_train_end(self, logs: Optional[dict[str, Any]] = None):
         """结束 MLflow run，自动保存 artifacts。"""
         if self.mlflow is None:
             return
@@ -304,7 +304,7 @@ class MLflowCallback(Callback):
         except Exception as e:
             logger.warning(f"Failed to end MLflow run: {e}")
 
-    def _flatten_dict(self, d: Dict[str, Any], parent_key: str = "", sep: str = ".") -> Dict[str, Any]:
+    def _flatten_dict(self, d: dict[str, Any], parent_key: str = "", sep: str = ".") -> dict[str, Any]:
         """扁平化嵌套字典。"""
         items = []
         for k, v in d.items():
@@ -371,7 +371,7 @@ class TensorBoardCallback(Callback):
         """设置模型（用于记录模型图）。"""
         self.model = model
 
-    def on_train_begin(self, logs: Optional[Dict[str, Any]] = None):
+    def on_train_begin(self, logs: Optional[dict[str, Any]] = None):
         """记录配置和模型图。"""
         if self.writer is None:
             return
@@ -398,7 +398,7 @@ class TensorBoardCallback(Callback):
         except Exception as e:
             logger.warning(f"Failed to log to TensorBoard: {e}")
 
-    def on_epoch_end(self, epoch: int, logs: Optional[Dict[str, Any]] = None):
+    def on_epoch_end(self, epoch: int, logs: Optional[dict[str, Any]] = None):
         """自动记录 epoch 指标。"""
         if self.writer is None or logs is None:
             return
@@ -414,7 +414,7 @@ class TensorBoardCallback(Callback):
         except Exception as e:
             logger.warning(f"Failed to log to TensorBoard: {e}")
 
-    def on_train_end(self, logs: Optional[Dict[str, Any]] = None):
+    def on_train_end(self, logs: Optional[dict[str, Any]] = None):
         """关闭 TensorBoard writer。"""
         if self.writer is not None:
             try:
@@ -423,7 +423,7 @@ class TensorBoardCallback(Callback):
             except Exception as e:
                 logger.warning(f"Failed to close TensorBoard writer: {e}")
 
-    def _dict_to_text(self, d: Dict[str, Any], indent: int = 0) -> str:
+    def _dict_to_text(self, d: dict[str, Any], indent: int = 0) -> str:
         """将字典转换为文本格式。"""
         lines = []
         for k, v in d.items():

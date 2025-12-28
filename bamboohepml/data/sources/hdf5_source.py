@@ -3,7 +3,7 @@ HDF5 数据源实现
 """
 
 import math
-from typing import List, Optional
+from typing import Optional
 
 import awkward as ak
 
@@ -14,7 +14,7 @@ from .base import DataSource
 class HDF5DataSource(DataSource):
     """HDF5 文件数据源。"""
 
-    def load_branches(self, branches: List[str]) -> ak.Array:
+    def load_branches(self, branches: list[str]) -> ak.Array:
         """加载指定的分支。
 
         Args:
@@ -70,7 +70,7 @@ class HDF5DataSource(DataSource):
 
         return _concat(table)
 
-    def get_available_branches(self) -> List[str]:
+    def get_available_branches(self) -> list[str]:
         """获取可用的分支列表。
 
         Returns:

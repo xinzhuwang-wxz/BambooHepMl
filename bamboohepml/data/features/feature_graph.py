@@ -10,7 +10,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 import yaml
 
@@ -33,8 +33,8 @@ class FeatureNode:
 
     name: str
     feature_def: dict
-    dependencies: List[str] = field(default_factory=list)
-    dependents: List[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    dependents: list[str] = field(default_factory=list)
     computed: bool = False
     cached_value: Any = None
     computation_time: float = 0.0
@@ -58,12 +58,12 @@ class FeatureGraph:
         Args:
             enable_cache (bool): 是否启用缓存。默认为 True。
         """
-        self.nodes: Dict[str, FeatureNode] = {}
-        self.edges: List[Tuple[str, str]] = []  # (source, target) 表示 source 依赖 target
-        self._execution_order: Optional[List[str]] = None
+        self.nodes: dict[str, FeatureNode] = {}
+        self.edges: list[tuple[str, str]] = []  # (source, target) 表示 source 依赖 target
+        self._execution_order: Optional[list[str]] = None
         self.enable_cache = enable_cache
-        self._cache: Dict[str, Any] = {}  # 特征值缓存
-        self._computation_stats: Dict[str, dict] = {}  # 计算统计信息
+        self._cache: dict[str, Any] = {}  # 特征值缓存
+        self._computation_stats: dict[str, dict] = {}  # 计算统计信息
 
     def add_node(self, name: str, feature_def: dict):
         """添加节点。
@@ -101,8 +101,8 @@ class FeatureGraph:
         Returns:
             bool: 是否有循环
         """
-        visited: Set[str] = set()
-        rec_stack: Set[str] = set()
+        visited: set[str] = set()
+        rec_stack: set[str] = set()
 
         def dfs(node_name: str) -> bool:
             """深度优先搜索检测循环。"""
@@ -114,8 +114,11 @@ class FeatureGraph:
             visited.add(node_name)
             rec_stack.add(node_name)
 
-            # 检查所有依赖
+            # 检查所有依赖（只检查在图中存在的节点）
             for dep in self.nodes[node_name].dependencies:
+                if dep not in self.nodes:
+                    # 依赖不在图中，跳过（可能是原始数据字段）
+                    continue
                 if dfs(dep):
                     return True
 
@@ -130,7 +133,7 @@ class FeatureGraph:
 
         return False
 
-    def topological_sort(self) -> List[str]:
+    def topological_sort(self) -> list[str]:
         """拓扑排序（Kahn 算法）。
 
         Returns:
@@ -139,34 +142,41 @@ class FeatureGraph:
         Raises:
             ValueError: 如果存在循环依赖
         """
-        # 计算入度（有多少节点依赖此节点）
+        # 计算入度（有多少个依赖必须在此节点之前处理）
         # 注意：edge (source, target) 表示 source 依赖 target
-        # 所以 target 的入度应该增加（有多少节点依赖它）
-        in_degree: Dict[str, int] = {name: 0 for name in self.nodes}
-        for source, target in self.edges:
-            in_degree[target] += 1
+        # 对于拓扑排序，我们需要计算：每个节点有多少个依赖（dependencies）
+        # 即：in_degree[node] = len(node.dependencies)
+        in_degree: dict[str, int] = {}
+        for name in self.nodes:
+            # 入度 = 该节点有多少个依赖（dependencies）
+            # 只计算在图中存在的依赖
+            in_degree[name] = len([dep for dep in self.nodes[name].dependencies if dep in self.nodes])
 
-        # 找到所有入度为 0 的节点（没有依赖的节点）
-        queue: List[str] = [name for name, degree in in_degree.items() if degree == 0]
-        result: List[str] = []
+        # 找到所有入度为 0 的节点（没有依赖的节点，可以立即处理）
+        queue: list[str] = [name for name, degree in in_degree.items() if degree == 0]
+        result: list[str] = []
 
         while queue:
             node_name = queue.pop(0)
             result.append(node_name)
 
             # 减少依赖此节点的节点的入度
+            # 当 node_name 被处理后，所有依赖 node_name 的节点可以减少一个依赖
             for dependent in self.nodes[node_name].dependents:
-                in_degree[dependent] -= 1
-                if in_degree[dependent] == 0:
-                    queue.append(dependent)
+                if dependent in in_degree:  # 确保 dependent 在图中
+                    in_degree[dependent] -= 1
+                    if in_degree[dependent] == 0:
+                        queue.append(dependent)
 
         # 检查是否所有节点都被处理（如果没有，说明有循环）
         if len(result) != len(self.nodes):
-            raise ValueError("Circular dependency detected in feature graph!")
+            # 找出未处理的节点（这些节点形成了循环）
+            unprocessed = set(self.nodes.keys()) - set(result)
+            raise ValueError(f"Circular dependency detected in feature graph! " f"Unprocessed nodes: {sorted(unprocessed)}")
 
         return result
 
-    def get_execution_order(self) -> List[str]:
+    def get_execution_order(self) -> list[str]:
         """获取执行顺序（缓存结果）。
 
         Returns:
@@ -178,7 +188,7 @@ class FeatureGraph:
             self._execution_order = self.topological_sort()
         return self._execution_order
 
-    def get_dependencies(self, feature_name: str) -> List[str]:
+    def get_dependencies(self, feature_name: str) -> list[str]:
         """获取特征的所有依赖。
 
         Args:
@@ -191,7 +201,7 @@ class FeatureGraph:
             raise ValueError(f"Feature '{feature_name}' not found")
         return self.nodes[feature_name].dependencies.copy()
 
-    def get_dependents(self, feature_name: str) -> List[str]:
+    def get_dependents(self, feature_name: str) -> list[str]:
         """获取依赖此特征的所有特征。
 
         Args:
@@ -264,7 +274,7 @@ class FeatureGraph:
         if feature_name in self.nodes:
             self.nodes[feature_name].computation_time = time_taken
 
-    def get_stats(self) -> Dict[str, dict]:
+    def get_stats(self) -> dict[str, dict]:
         """获取计算统计信息。
 
         Returns:
@@ -355,7 +365,7 @@ class FeatureGraph:
         return "\n".join(lines)
 
     @classmethod
-    def from_feature_defs(cls, features: Dict[str, dict], expression_engine, enable_cache: bool = True) -> "FeatureGraph":
+    def from_feature_defs(cls, features: dict[str, dict], expression_engine, enable_cache: bool = True) -> "FeatureGraph":
         """从特征定义构建图。
 
         Args:
@@ -379,10 +389,14 @@ class FeatureGraph:
             # 从 expr 提取依赖
             if "expr" in feature_def:
                 expr = feature_def["expr"]
-                deps = expression_engine.get_dependencies(expr)
-                # 过滤：只保留在特征列表中的依赖（排除原始数据字段如 "Jet", "met"）
-                deps = {dep for dep in deps if dep in features}
-                dependencies.update(deps)
+                try:
+                    deps = expression_engine.get_dependencies(expr)
+                    # 过滤：只保留在特征列表中的依赖（排除原始数据字段如 "Jet", "met"）
+                    deps = {dep for dep in deps if dep in features}
+                    dependencies.update(deps)
+                except Exception:
+                    # 如果表达式解析失败，跳过依赖提取
+                    pass
 
             # 从 source 提取依赖（如果是特征名）
             # 注意：source 通常是原始数据字段（如 "Jet", "met"），不是特征名
@@ -395,7 +409,6 @@ class FeatureGraph:
                 for s in source:
                     if s in features:
                         dependencies.add(s)
-            # 不要将 source 添加到依赖中，除非它是特征名
 
             # 显式依赖（只保留在特征列表中的依赖）
             if "dependencies" in feature_def:
@@ -408,12 +421,12 @@ class FeatureGraph:
                     if explicit_deps in features:
                         dependencies.add(explicit_deps)
 
-            # 过滤：只保留在特征列表中的依赖（排除原始数据字段如 "Jet", "met"）
+            # 最终过滤：只保留在特征列表中的依赖（排除原始数据字段如 "Jet", "met"）
             dependencies = {dep for dep in dependencies if dep in features}
 
-            # 添加边
+            # 添加边（确保 source 和 target 都在图中）
             for dep in dependencies:
-                if dep in graph.nodes:
+                if dep in graph.nodes and feature_name != dep:  # 防止自循环
                     graph.add_edge(feature_name, dep)
 
         return graph

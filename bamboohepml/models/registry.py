@@ -4,7 +4,7 @@
 提供模型注册和发现机制，支持动态注册模型。
 """
 
-from typing import Dict, Optional, Type
+from typing import Optional
 
 from .base import BaseModel
 
@@ -17,14 +17,14 @@ class ModelRegistry:
     """
 
     _instance = None
-    _registry: Dict[str, Type[BaseModel]] = {}
+    _registry: dict[str, type[BaseModel]] = {}
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def register(self, name: str, model_class: Type[BaseModel]):
+    def register(self, name: str, model_class: type[BaseModel]):
         """
         注册模型类。
 
@@ -36,7 +36,7 @@ class ModelRegistry:
             raise TypeError(f"Model class must be a subclass of BaseModel, got {model_class}")
         self._registry[name] = model_class
 
-    def get(self, name: str) -> Optional[Type[BaseModel]]:
+    def get(self, name: str) -> Optional[type[BaseModel]]:
         """
         获取模型类。
 
@@ -81,7 +81,7 @@ def register_model(name: str):
             ...
     """
 
-    def decorator(model_class: Type[BaseModel]):
+    def decorator(model_class: type[BaseModel]):
         _registry.register(name, model_class)
         return model_class
 

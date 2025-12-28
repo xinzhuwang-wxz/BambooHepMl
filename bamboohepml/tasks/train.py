@@ -11,7 +11,7 @@
 import json
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -126,7 +126,7 @@ def eval_step_ray(
     loss_fn: nn.Module,
     input_key: str,
     task_type: str,
-) -> Tuple[float, np.ndarray, np.ndarray]:
+) -> tuple[float, np.ndarray, np.ndarray]:
     """Ray 评估步骤。"""
     model.eval()
     loss = 0.0
@@ -245,7 +245,7 @@ def train_task(
     use_ray: bool = False,
     num_workers: int = 1,
     gpu_per_worker: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     训练任务主函数。
 

@@ -7,7 +7,7 @@
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import onnx
 import onnxruntime as ort
@@ -24,7 +24,7 @@ def export_task(
     output_path: str,
     input_shape: Optional[tuple] = None,
     opset_version: int = 11,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     导出任务主函数（ONNX 格式）。
 

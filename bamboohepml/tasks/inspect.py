@@ -8,7 +8,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -24,7 +24,7 @@ def inspect_task(
     num_samples: int = 1000,
     inspect_data: bool = True,
     inspect_features: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     检查任务主函数。
 

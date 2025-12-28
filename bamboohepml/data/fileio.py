@@ -60,11 +60,11 @@ def _read_root(filepath, branches, load_range=None, treename=None, branch_magic=
 
     with uproot.open(filepath) as f:
         if treename is None:
-            treenames = set([k.split(";")[0] for k, v in f.items() if getattr(v, "classname", "") == "TTree"])
+            treenames = {k.split(";")[0] for k, v in f.items() if getattr(v, "classname", "") == "TTree"}
             if len(treenames) == 1:
                 treename = treenames.pop()
             else:
-                raise RuntimeError("需要指定 `treename`，因为文件 %s 中找到多个树: %s" % (filepath, str(treenames)))
+                raise RuntimeError(f"需要指定 `treename`，因为文件 {filepath} 中找到多个树: {str(treenames)}")
         tree = f[treename]
         if load_range is not None:
             start = math.trunc(load_range[0] * tree.num_entries)
@@ -179,7 +179,7 @@ def read_files(filelist, branches, load_range=None, show_progressbar=False, file
     for filepath in filelist:
         ext = os.path.splitext(filepath)[1]
         if ext not in (".h5", ".root", ".awkd", ".parquet"):
-            raise RuntimeError("不支持文件类型 `%s`：%s" % (ext, filepath))
+            raise RuntimeError(f"不支持文件类型 `{ext}`：{filepath}")
         try:
             if ext == ".h5":
                 a = _read_hdf5(filepath, branches, load_range=load_range)

@@ -5,7 +5,7 @@ FastAPI 推理服务
 """
 
 from http import HTTPStatus
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import torch
 from fastapi import FastAPI, HTTPException
@@ -21,14 +21,14 @@ from ..pipeline import PipelineOrchestrator
 class PredictRequest(BaseModel):
     """预测请求模型。"""
 
-    features: List[List[float]] = Field(..., description="特征向量列表")
+    features: list[list[float]] = Field(..., description="特征向量列表")
     return_probabilities: bool = Field(False, description="是否返回概率")
 
 
 class BatchPredictRequest(BaseModel):
     """批量预测请求模型。"""
 
-    samples: List[Dict[str, Any]] = Field(..., description="样本列表")
+    samples: list[dict[str, Any]] = Field(..., description="样本列表")
     return_probabilities: bool = Field(False, description="是否返回概率")
 
 
@@ -36,8 +36,8 @@ class BatchPredictRequest(BaseModel):
 class PredictResponse(BaseModel):
     """预测响应模型。"""
 
-    predictions: List[Any] = Field(..., description="预测结果列表")
-    probabilities: Optional[List[List[float]]] = Field(None, description="概率列表（如果请求）")
+    predictions: list[Any] = Field(..., description="预测结果列表")
+    probabilities: Optional[list[list[float]]] = Field(None, description="概率列表（如果请求）")
 
 
 class HealthResponse(BaseModel):
@@ -45,14 +45,14 @@ class HealthResponse(BaseModel):
 
     status: str = Field(..., description="状态")
     message: str = Field(..., description="消息")
-    model_info: Optional[Dict[str, Any]] = Field(None, description="模型信息")
+    model_info: Optional[dict[str, Any]] = Field(None, description="模型信息")
 
 
 def create_app(
     model_path: Optional[str] = None,
     pipeline_config_path: Optional[str] = None,
     model_name: Optional[str] = None,
-    model_params: Optional[Dict[str, Any]] = None,
+    model_params: Optional[dict[str, Any]] = None,
 ) -> FastAPI:
     """
     创建 FastAPI 应用。
@@ -74,7 +74,7 @@ def create_app(
 
     # 全局变量存储模型和预测器
     predictor: Optional[Predictor] = None
-    model_info: Dict[str, Any] = {}
+    model_info: dict[str, Any] = {}
 
     @app.on_event("startup")
     async def startup_event():
@@ -118,6 +118,9 @@ def create_app(
                 # 直接使用提供的参数
                 if model_name is None or model_params is None:
                     raise ValueError("Either pipeline_config_path or (model_name and model_params) must be provided")
+                # Store for later use in model_info
+                stored_model_name = model_name
+                stored_model_params = model_params.copy() if model_params else {}
                 model = get_model(model_name, **model_params)
 
             # 加载权重
@@ -128,17 +131,19 @@ def create_app(
 
             # 创建预测器
             predictor = Predictor(model)
-            # Ensure model_name and model_params are defined for model_info
+            # Build model_info
             if pipeline_config_path:
-                # Already set above
-                pass
+                # model_name and model_params already set above
+                final_model_name = model_name
+                final_model_params = model_params
             else:
-                # Already set above
-                pass
+                # Use stored values
+                final_model_name = stored_model_name
+                final_model_params = stored_model_params
             model_info = {
-                "model_name": model_name or "unknown",
+                "model_name": final_model_name or "unknown",
                 "model_path": model_path or "unknown",
-                "input_dim": model_params.get("input_dim", "unknown") if model_params else "unknown",
+                "input_dim": final_model_params.get("input_dim", "unknown") if final_model_params else "unknown",
             }
 
             logger.info("Model loaded successfully")
@@ -149,7 +154,7 @@ def create_app(
             logger.error(traceback.format_exc())
             # 不抛出异常，让应用启动，但预测时会返回错误
             predictor = None
-            raise
+            model_info = {"error": str(e)}
 
     @app.get("/", response_model=HealthResponse)
     async def health_check():

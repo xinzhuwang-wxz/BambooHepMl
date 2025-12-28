@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import awkward as ak
 
@@ -23,10 +23,10 @@ class DataSourceConfig:
         load_range: 加载范围 (start, end)，范围在 [0, 1]
     """
 
-    file_paths: Union[str, List[str]]
+    file_paths: Union[str, list[str]]
     treename: Optional[str] = None
-    branch_magic: Optional[Dict[str, str]] = None
-    file_magic: Optional[Dict[str, Dict[str, Any]]] = None
+    branch_magic: Optional[dict[str, str]] = None
+    file_magic: Optional[dict[str, dict[str, Any]]] = None
     load_range: Optional[tuple] = None
 
 
@@ -47,7 +47,7 @@ class DataSource(ABC):
         self._file_paths = self._resolve_file_paths(config.file_paths)
 
     @staticmethod
-    def _resolve_file_paths(file_paths: Union[str, List[str]]) -> List[str]:
+    def _resolve_file_paths(file_paths: Union[str, list[str]]) -> list[str]:
         """解析文件路径。
 
         Args:
@@ -71,7 +71,7 @@ class DataSource(ABC):
             raise ValueError(f"Invalid file_paths type: {type(file_paths)}")
 
     @abstractmethod
-    def load_branches(self, branches: List[str]) -> ak.Array:
+    def load_branches(self, branches: list[str]) -> ak.Array:
         """加载指定的分支。
 
         Args:
@@ -83,7 +83,7 @@ class DataSource(ABC):
         pass
 
     @abstractmethod
-    def get_available_branches(self) -> List[str]:
+    def get_available_branches(self) -> list[str]:
         """获取可用的分支列表。
 
         Returns:
@@ -91,7 +91,7 @@ class DataSource(ABC):
         """
         pass
 
-    def get_file_paths(self) -> List[str]:
+    def get_file_paths(self) -> list[str]:
         """获取文件路径列表。
 
         Returns:

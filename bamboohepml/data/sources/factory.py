@@ -5,7 +5,7 @@
 """
 
 import os
-from typing import List, Union
+from typing import Union
 
 from .base import DataSource, DataSourceConfig
 from .hdf5_source import HDF5DataSource
@@ -17,7 +17,7 @@ class DataSourceFactory:
     """数据源工厂类。"""
 
     @staticmethod
-    def create(file_paths: Union[str, List[str]], **kwargs) -> DataSource:
+    def create(file_paths: Union[str, list[str]], **kwargs) -> DataSource:
         """根据文件类型创建数据源。
 
         Args:

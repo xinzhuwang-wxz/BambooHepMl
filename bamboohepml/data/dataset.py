@@ -10,7 +10,7 @@ Dataset 类
 
 import copy
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import awkward as ak
 import numpy as np
@@ -37,7 +37,7 @@ def _collate_awkward_array_fn(batch, *, collate_fn_map=None):
     return _stack(batch, axis=0)
 
 
-def _finalize_inputs(table: ak.Array, data_config: DataConfig) -> Dict[str, Any]:
+def _finalize_inputs(table: ak.Array, data_config: DataConfig) -> dict[str, Any]:
     """最终化输入（标准化、裁剪、padding、堆叠）。
 
     借鉴 weaver-core 的 _finalize_inputs 函数。
@@ -404,7 +404,7 @@ class HEPDataset(IterableDataset):
             # 如果无法确定，返回一个估计值
             return 0
 
-    def get_sample(self, index: int) -> Dict[str, Any]:
+    def get_sample(self, index: int) -> dict[str, Any]:
         """获取单个样本（用于调试）。
 
         Args:
@@ -445,7 +445,7 @@ class TransformerDataset(HEPDataset):
         """初始化 Transformer 数据集。"""
         super().__init__(*args, **kwargs)
 
-    def _format_transformer_input(self, sample: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+    def _format_transformer_input(self, sample: dict[str, Any]) -> dict[str, torch.Tensor]:
         """格式化为 Transformer 输入格式。
 
         Args:

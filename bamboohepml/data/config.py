@@ -52,7 +52,7 @@ def _md5(fname):
     return hash_md5.hexdigest()
 
 
-class DataConfig(object):
+class DataConfig:
     """
     数据配置类，用于存储数据加载器的配置。
 
@@ -135,9 +135,7 @@ class DataConfig(object):
                     }
 
                     if v[0] in self.preprocess_params and params != self.preprocess_params[v[0]]:
-                        raise RuntimeError(
-                            "变量 %s 的信息不兼容，已有: \n  %s\n现在得到:\n  %s" % (v[0], str(self.preprocess_params[v[0]]), str(params))
-                        )
+                        raise RuntimeError(f"变量 {v[0]} 的信息不兼容，已有: \n  {str(self.preprocess_params[v[0]])}\n现在得到:\n  {str(params)}")
 
                     if k.endswith("_mask") and params["pad_mode"] != "constant":
                         raise RuntimeError("掩码输入 `%s` 的 `pad_mode` 必须设置为 `constant`" % k)
@@ -229,7 +227,7 @@ class DataConfig(object):
                         "reweight_threshold",
                         "reweight_discard_under_overflow",
                     ]:
-                        _log("%s: %s" % (k, getattr(self, k)))
+                        _log(f"{k}: {getattr(self, k)}")
 
         # 注册依赖
         if self.selection:
@@ -328,12 +326,12 @@ class DataConfig(object):
         if not load_reweight_info:
             options["weights"] = None
         if extra_selection:
-            options["selection"] = "(%s) & (%s)" % (_opts["selection"], extra_selection)
+            options["selection"] = "({}) & ({})".format(_opts["selection"], extra_selection)
         if extra_test_selection:
             if "test_time_selection" not in options or options["test_time_selection"] is None:
-                options["test_time_selection"] = "(%s) & (%s)" % (_opts["selection"], extra_test_selection)
+                options["test_time_selection"] = "({}) & ({})".format(_opts["selection"], extra_test_selection)
             else:
-                options["test_time_selection"] = "(%s) & (%s)" % (_opts["test_time_selection"], extra_test_selection)
+                options["test_time_selection"] = "({}) & ({})".format(_opts["test_time_selection"], extra_test_selection)
         return cls(**options)
 
     def copy(self):

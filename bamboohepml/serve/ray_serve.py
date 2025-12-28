@@ -5,7 +5,7 @@ Ray Serve 集成
 """
 
 from http import HTTPStatus
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import torch
 from fastapi import FastAPI
@@ -40,7 +40,7 @@ class RayServeDeployment:
         pipeline_config_path: Optional[str] = None,
         run_id: Optional[str] = None,
         model_name: Optional[str] = None,
-        model_params: Optional[Dict[str, Any]] = None,
+        model_params: Optional[dict[str, Any]] = None,
     ):
         """
         初始化部署。
@@ -59,7 +59,7 @@ class RayServeDeployment:
         # 加载模型
         self._load_model(model_name, model_params)
 
-    def _load_model(self, model_name: Optional[str], model_params: Optional[Dict[str, Any]]):
+    def _load_model(self, model_name: Optional[str], model_params: Optional[dict[str, Any]]):
         """加载模型。"""
         try:
             if self.pipeline_config_path:
@@ -114,7 +114,7 @@ class RayServeDeployment:
             raise
 
     @app.get("/")
-    def _index(self) -> Dict[str, Any]:
+    def _index(self) -> dict[str, Any]:
         """健康检查。"""
         return {
             "message": HTTPStatus.OK.phrase,
@@ -126,12 +126,12 @@ class RayServeDeployment:
         }
 
     @app.get("/run_id")
-    def _run_id(self) -> Dict[str, str]:
+    def _run_id(self) -> dict[str, str]:
         """获取 run ID。"""
         return {"run_id": self.run_id or "N/A"}
 
     @app.post("/predict")
-    async def _predict(self, request: Request) -> Dict[str, Any]:
+    async def _predict(self, request: Request) -> dict[str, Any]:
         """预测。"""
         data = await request.json()
         features = data.get("features", [])
@@ -176,7 +176,7 @@ def serve_ray(
     pipeline_config_path: Optional[str] = None,
     run_id: Optional[str] = None,
     model_name: Optional[str] = None,
-    model_params: Optional[Dict[str, Any]] = None,
+    model_params: Optional[dict[str, Any]] = None,
     **kwargs,
 ):
     """

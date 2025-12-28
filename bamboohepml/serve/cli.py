@@ -4,10 +4,9 @@
 提供命令行接口启动服务。
 """
 
-from typing import Optional
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from .fastapi_server import serve_fastapi
 from .ray_serve import serve_ray

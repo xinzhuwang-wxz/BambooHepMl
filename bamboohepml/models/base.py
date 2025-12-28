@@ -10,7 +10,7 @@
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -39,12 +39,12 @@ class BaseModel(nn.Module, ABC):
         Args:
             **kwargs: 模型特定参数
         """
-        super(BaseModel, self).__init__()
+        super().__init__()
         self.config = kwargs
         self._frozen_layers = set()
 
     @abstractmethod
-    def forward(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         """
         前向传播。
 
@@ -62,7 +62,7 @@ class BaseModel(nn.Module, ABC):
         pass
 
     @torch.inference_mode()
-    def predict(self, batch: Dict[str, torch.Tensor]) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+    def predict(self, batch: dict[str, torch.Tensor]) -> Union[torch.Tensor, dict[str, torch.Tensor]]:
         """
         预测（推理模式）。
 
@@ -105,7 +105,7 @@ class BaseModel(nn.Module, ABC):
             return output.squeeze().cpu()
 
     @torch.inference_mode()
-    def predict_proba(self, batch: Dict[str, torch.Tensor]) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+    def predict_proba(self, batch: dict[str, torch.Tensor]) -> Union[torch.Tensor, dict[str, torch.Tensor]]:
         """
         预测概率（仅分类任务）。
 
@@ -128,7 +128,7 @@ class BaseModel(nn.Module, ABC):
         else:
             return F.softmax(output, dim=1).cpu()
 
-    def freeze_layers(self, layer_names: Optional[List[str]] = None, freeze_all: bool = False):
+    def freeze_layers(self, layer_names: Optional[list[str]] = None, freeze_all: bool = False):
         """
         冻结层（用于 finetune）。
 
@@ -149,7 +149,7 @@ class BaseModel(nn.Module, ABC):
                     param.requires_grad = False
                     self._frozen_layers.add(name)
 
-    def unfreeze_layers(self, layer_names: Optional[List[str]] = None, unfreeze_all: bool = False):
+    def unfreeze_layers(self, layer_names: Optional[list[str]] = None, unfreeze_all: bool = False):
         """
         解冻层。
 
@@ -169,7 +169,7 @@ class BaseModel(nn.Module, ABC):
                     param.requires_grad = True
                     self._frozen_layers.discard(name)
 
-    def get_frozen_layers(self) -> List[str]:
+    def get_frozen_layers(self) -> list[str]:
         """
         获取当前冻结的层名称列表。
 
@@ -219,7 +219,7 @@ class BaseModel(nn.Module, ABC):
         """
         pass
 
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """
         获取模型信息（用于日志和调试）。
 
@@ -279,7 +279,7 @@ class RegressionModel(BaseModel):
         """回归任务的预测：直接返回预测值"""
         return output.squeeze().cpu()
 
-    def predict_proba(self, batch: Dict[str, torch.Tensor]) -> None:
+    def predict_proba(self, batch: dict[str, torch.Tensor]) -> None:
         """回归任务不支持 predict_proba"""
         raise NotImplementedError("Regression models do not support predict_proba")
 
@@ -291,7 +291,7 @@ class MultitaskModel(BaseModel):
     输出格式：Dict[str, torch.Tensor]，每个键对应一个任务
     """
 
-    def __init__(self, tasks: Dict[str, Dict[str, Any]], **kwargs):
+    def __init__(self, tasks: dict[str, dict[str, Any]], **kwargs):
         """
         初始化多任务模型。
 
@@ -303,7 +303,7 @@ class MultitaskModel(BaseModel):
         super().__init__(tasks=tasks, **kwargs)
         self.tasks = tasks
 
-    def forward(self, batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """
         多任务前向传播。
 

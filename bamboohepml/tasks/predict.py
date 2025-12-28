@@ -9,7 +9,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import torch
 from torch.utils.data import DataLoader
@@ -26,7 +26,7 @@ def predict_task(
     output_path: Optional[str] = None,
     batch_size: int = 32,
     return_probabilities: bool = False,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     预测任务主函数。
 

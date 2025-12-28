@@ -10,7 +10,7 @@
 
 import ast
 import math
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable, Optional
 
 import awkward as ak
 import numpy as np
@@ -26,7 +26,7 @@ class OperatorRegistry:
     """
 
     def __init__(self):
-        self._functions: Dict[str, Callable] = {}
+        self._functions: dict[str, Callable] = {}
         self._register_builtin_functions()
 
     def register(self, name: str, func: Callable, override: bool = False):
@@ -157,7 +157,7 @@ class ExpressionEngine:
         self.registry = registry if registry is not None else OperatorRegistry()
         self._exclude_names = {"awkward", "ak", "np", "numpy", "math", "len", "abs", "sum", "mean", "max", "min"}
 
-    def get_dependencies(self, expr: str) -> Set[str]:
+    def get_dependencies(self, expr: str) -> set[str]:
         """从表达式提取变量名（依赖）。
 
         Args:
@@ -214,7 +214,7 @@ class ExpressionEngine:
         except SyntaxError:
             return False
 
-    def evaluate(self, expr: str, context: Dict[str, Any]) -> Any:
+    def evaluate(self, expr: str, context: dict[str, Any]) -> Any:
         """求值表达式。
 
         Args:

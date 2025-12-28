@@ -8,7 +8,6 @@ MLP 模型
 
 import json
 from pathlib import Path
-from typing import Dict, List
 
 import torch
 import torch.nn as nn
@@ -35,7 +34,7 @@ class MLPClassifier(ClassificationModel):
     def __init__(
         self,
         input_dim: int,
-        hidden_dims: List[int] = [256, 128, 64],
+        hidden_dims: list[int] = [256, 128, 64],
         num_classes: int = 2,
         dropout: float = 0.1,
         activation: str = "relu",
@@ -99,7 +98,7 @@ class MLPClassifier(ClassificationModel):
 
         self.network = nn.Sequential(*layers)
 
-    def forward(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         """
         前向传播。
 
@@ -132,7 +131,7 @@ class MLPClassifier(ClassificationModel):
         save_dir = Path(save_dir)
         config_path = save_dir / f"{model_name}_config.json"
 
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config = json.load(f)
 
         # 创建模型实例
@@ -145,7 +144,7 @@ class MLPClassifier(ClassificationModel):
         # 加载冻结层信息
         frozen_path = save_dir / f"{model_name}_frozen.json"
         if frozen_path.exists():
-            with open(frozen_path, "r") as f:
+            with open(frozen_path) as f:
                 frozen_layers = json.load(f)
             model._frozen_layers = set(frozen_layers)
             # 恢复冻结状态
@@ -174,7 +173,7 @@ class MLPRegressor(RegressionModel):
     def __init__(
         self,
         input_dim: int,
-        hidden_dims: List[int] = [256, 128, 64],
+        hidden_dims: list[int] = [256, 128, 64],
         num_outputs: int = 1,
         dropout: float = 0.1,
         activation: str = "relu",
@@ -238,7 +237,7 @@ class MLPRegressor(RegressionModel):
 
         self.network = nn.Sequential(*layers)
 
-    def forward(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         """
         前向传播。
 
@@ -271,7 +270,7 @@ class MLPRegressor(RegressionModel):
         save_dir = Path(save_dir)
         config_path = save_dir / f"{model_name}_config.json"
 
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config = json.load(f)
 
         # 创建模型实例
@@ -284,7 +283,7 @@ class MLPRegressor(RegressionModel):
         # 加载冻结层信息
         frozen_path = save_dir / f"{model_name}_frozen.json"
         if frozen_path.exists():
-            with open(frozen_path, "r") as f:
+            with open(frozen_path) as f:
                 frozen_layers = json.load(f)
             model._frozen_layers = set(frozen_layers)
             # 恢复冻结状态
