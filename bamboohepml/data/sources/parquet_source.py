@@ -2,8 +2,6 @@
 Parquet 数据源实现
 """
 
-from __future__ import annotations
-
 import math
 
 import awkward as ak

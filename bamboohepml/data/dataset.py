@@ -8,8 +8,6 @@ Dataset 类
 - 与特征系统集成
 """
 
-from __future__ import annotations
-
 import copy
 from functools import partial
 from typing import Any

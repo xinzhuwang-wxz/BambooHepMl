@@ -7,8 +7,6 @@
 - 数据预处理工具
 """
 
-from __future__ import annotations
-
 import json
 import os
 import random

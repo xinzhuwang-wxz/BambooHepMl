@@ -4,9 +4,7 @@ ONNX 推理接口
 提供 ONNX 模型的推理功能。
 """
 
-from __future__ import annotations
-
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -27,7 +25,7 @@ class ONNXPredictor:
     使用 ONNX Runtime 进行推理。
     """
 
-    def __init__(self, onnx_path: str, providers: Optional[List[str]] = None):
+    def __init__(self, onnx_path: str, providers: list[str] | None = None):
         """
         初始化 ONNX 预测器。
 
@@ -40,39 +38,28 @@ class ONNXPredictor:
 
         self.onnx_path = onnx_path
 
-        # 设置执行提供者
+        # 默认提供者
         if providers is None:
             providers = ["CPUExecutionProvider"]
-            # 如果有 CUDA，优先使用
-            try:
-                ort.InferenceSession("", providers=["CUDAExecutionProvider"])
-                providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            except Exception:
-                pass
 
         # 创建推理会话
-        sess_options = ort.SessionOptions()
-        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        self.session = ort.InferenceSession(onnx_path, providers=providers)
 
-        self.session = ort.InferenceSession(
-            onnx_path,
-            sess_options=sess_options,
-            providers=providers,
-        )
-
-        # 获取输入输出信息
-        self.input_name = self.session.get_inputs()[0].name
-        self.output_name = self.session.get_outputs()[0].name
+        # 获取输入输出名称
+        input_info = self.session.get_inputs()[0]
+        output_info = self.session.get_outputs()[0]
+        self.input_name = input_info.name
+        self.output_name = output_info.name
 
         logger.info(f"ONNX model loaded from {onnx_path}")
-        logger.info(f"Input: {self.input_name}, Output: {self.output_name}")
-        logger.info(f"Providers: {providers}")
+        logger.info(f"Input: {input_info.name}, shape: {input_info.shape}")
+        logger.info(f"Output: {output_info.name}, shape: {output_info.shape}")
 
     def predict(
         self,
         features: np.ndarray,
         return_probabilities: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         预测。
 
@@ -124,9 +111,9 @@ class ONNXPredictor:
 
     def predict_batch(
         self,
-        features_list: List[List[float]],
+        features_list: list[list[float]],
         return_probabilities: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         批量预测。
 
@@ -145,7 +132,7 @@ class ONNXPredictor:
         exp_x = np.exp(x - np.max(x))
         return exp_x / exp_x.sum()
 
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """获取模型信息。"""
         input_info = self.session.get_inputs()[0]
         output_info = self.session.get_outputs()[0]
@@ -154,8 +141,9 @@ class ONNXPredictor:
             "onnx_path": self.onnx_path,
             "input_name": input_info.name,
             "input_shape": input_info.shape,
-            "input_type": input_info.type,
+            "input_type": str(input_info.type),
             "output_name": output_info.name,
             "output_shape": output_info.shape,
-            "output_type": output_info.type,
+            "output_type": str(output_info.type),
+            "providers": self.session.get_providers(),
         }

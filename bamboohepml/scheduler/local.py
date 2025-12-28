@@ -4,8 +4,6 @@
 直接在本地执行任务，不使用集群调度系统。
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from ..config import logger

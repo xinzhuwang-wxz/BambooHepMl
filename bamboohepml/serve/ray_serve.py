@@ -4,10 +4,8 @@ Ray Serve 集成
 使用 Ray Serve 部署模型服务。
 """
 
-from __future__ import annotations
-
 from http import HTTPStatus
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 from fastapi import FastAPI
@@ -38,11 +36,11 @@ class RayServeDeployment:
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
-        pipeline_config_path: Optional[str] = None,
-        run_id: Optional[str] = None,
-        model_name: Optional[str] = None,
-        model_params: Optional[Dict[str, Any]] = None,
+        model_path: str | None = None,
+        pipeline_config_path: str | None = None,
+        run_id: str | None = None,
+        model_name: str | None = None,
+        model_params: dict[str, Any] | None = None,
     ):
         """
         初始化部署。
@@ -61,7 +59,7 @@ class RayServeDeployment:
         # 加载模型
         self._load_model(model_name, model_params)
 
-    def _load_model(self, model_name: Optional[str], model_params: Optional[Dict[str, Any]]):
+    def _load_model(self, model_name: str | None, model_params: dict[str, Any] | None):
         """加载模型。"""
         try:
             if self.pipeline_config_path:
@@ -116,7 +114,7 @@ class RayServeDeployment:
             raise
 
     @app.get("/")
-    def _index(self) -> Dict[str, Any]:
+    def _index(self) -> dict[str, Any]:
         """健康检查。"""
         return {
             "message": HTTPStatus.OK.phrase,
@@ -128,57 +126,57 @@ class RayServeDeployment:
         }
 
     @app.get("/run_id")
-    def _run_id(self) -> Dict[str, str]:
+    def _run_id(self) -> dict[str, str]:
         """获取 run ID。"""
         return {"run_id": self.run_id or "N/A"}
 
     @app.post("/predict")
-    async def _predict(self, request: Request) -> Dict[str, Any]:
+    async def _predict(self, request: Request) -> dict[str, Any]:
         """预测。"""
         data = await request.json()
         features = data.get("features", [])
-        return_probabilities = data.get("return_probabilities", False)
 
         if not features:
-            return {
-                "error": "No features provided",
-                "status-code": HTTPStatus.BAD_REQUEST,
-            }
+            return {"error": "No features provided"}
 
         try:
-            # 转换为 tensor
+            # 转换为 torch.Tensor
             features_tensor = torch.tensor(features, dtype=torch.float32)
 
-            # 创建临时 dataloader
-            from torch.utils.data import DataLoader, TensorDataset
+            # 创建临时数据集
+            from torch.utils.data import Dataset
 
-            dataset = TensorDataset(features_tensor)
+            class DictDataset(Dataset):
+                def __init__(self, data):
+                    self.data = data
+
+                def __len__(self):
+                    return len(self.data)
+
+                def __getitem__(self, idx):
+                    return self.data[idx]
+
+            dataset = DictDataset([{"features": features_tensor}])
+            from torch.utils.data import DataLoader
+
             dataloader = DataLoader(dataset, batch_size=len(features))
 
             # 预测
-            results = self.predictor.predict(
-                dataloader,
-                return_probabilities=return_probabilities,
-            )
+            results = self.predictor.predict(dataloader, return_probabilities=False)
 
-            return {
-                "results": results,
-                "status-code": HTTPStatus.OK,
-            }
+            predictions = [r["prediction"] for r in results]
+            return {"predictions": predictions}
         except Exception as e:
-            logger.error(f"Prediction failed: {e}")
-            return {
-                "error": str(e),
-                "status-code": HTTPStatus.INTERNAL_SERVER_ERROR,
-            }
+            logger.error(f"Prediction error: {e}")
+            return {"error": str(e)}
 
 
 def serve_ray(
-    model_path: Optional[str] = None,
-    pipeline_config_path: Optional[str] = None,
-    run_id: Optional[str] = None,
-    model_name: Optional[str] = None,
-    model_params: Optional[Dict[str, Any]] = None,
+    model_path: str | None = None,
+    pipeline_config_path: str | None = None,
+    run_id: str | None = None,
+    model_name: str | None = None,
+    model_params: dict[str, Any] | None = None,
     **kwargs,
 ):
     """
@@ -190,24 +188,14 @@ def serve_ray(
         run_id: MLflow run ID
         model_name: 模型名称
         model_params: 模型参数
-        **kwargs: 其他参数（传递给 RayServeDeployment）
+        **kwargs: 其他参数
     """
-    import ray
-
-    # 初始化 Ray（如果未初始化）
-    if not ray.is_initialized():
-        ray.init()
-
-    # 绑定部署
     deployment = RayServeDeployment.bind(
         model_path=model_path,
         pipeline_config_path=pipeline_config_path,
         run_id=run_id,
         model_name=model_name,
         model_params=model_params,
-        **kwargs,
     )
 
-    # 启动服务
-    logger.info("Starting Ray Serve deployment...")
-    serve.run(deployment)
+    serve.run(deployment, **kwargs)

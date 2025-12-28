@@ -4,8 +4,6 @@
 根据文件类型自动创建相应的数据源。
 """
 
-from __future__ import annotations
-
 import os
 
 from .base import DataSource, DataSourceConfig

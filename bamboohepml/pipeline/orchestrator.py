@@ -4,8 +4,6 @@ Pipeline Orchestrator
 统一入口，协调整个 ML pipeline。
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Any
 

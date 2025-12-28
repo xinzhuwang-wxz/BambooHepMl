@@ -8,8 +8,6 @@ Callback 系统
 - TensorBoard: 可视化
 """
 
-from __future__ import annotations
-
 import logging
 from abc import ABC
 from pathlib import Path

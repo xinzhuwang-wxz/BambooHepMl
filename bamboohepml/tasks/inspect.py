@@ -6,8 +6,6 @@
 - 特征检查（依赖关系、计算顺序）
 """
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from typing import Any

@@ -4,10 +4,7 @@ FastAPI 推理服务
 提供 RESTful API 接口用于模型推理。
 """
 
-from __future__ import annotations
-
-from http import HTTPStatus
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import torch
 from fastapi import FastAPI, HTTPException
@@ -23,14 +20,14 @@ from ..pipeline import PipelineOrchestrator
 class PredictRequest(BaseModel):
     """预测请求模型。"""
 
-    features: List[List[float]] = Field(..., description="特征向量列表")
+    features: list[list[float]] = Field(..., description="特征向量列表")
     return_probabilities: bool = Field(False, description="是否返回概率")
 
 
 class BatchPredictRequest(BaseModel):
     """批量预测请求模型。"""
 
-    samples: List[Dict[str, Any]] = Field(..., description="样本列表")
+    samples: list[dict[str, Any]] = Field(..., description="样本列表")
     return_probabilities: bool = Field(False, description="是否返回概率")
 
 
@@ -38,8 +35,8 @@ class BatchPredictRequest(BaseModel):
 class PredictResponse(BaseModel):
     """预测响应模型。"""
 
-    predictions: List[Any] = Field(..., description="预测结果列表")
-    probabilities: Optional[List[List[float]]] = Field(None, description="概率列表（如果请求）")
+    predictions: list[Any] = Field(..., description="预测结果列表")
+    probabilities: list[list[float]] | None = Field(None, description="概率列表（如果请求）")
 
 
 class HealthResponse(BaseModel):
@@ -47,14 +44,14 @@ class HealthResponse(BaseModel):
 
     status: str = Field(..., description="状态")
     message: str = Field(..., description="消息")
-    model_info: Optional[Dict[str, Any]] = Field(None, description="模型信息")
+    model_info: dict[str, Any] | None = Field(None, description="模型信息")
 
 
 def create_app(
-    model_path: Optional[str] = None,
-    pipeline_config_path: Optional[str] = None,
-    model_name: Optional[str] = None,
-    model_params: Optional[Dict[str, Any]] = None,
+    model_path: str | None = None,
+    pipeline_config_path: str | None = None,
+    model_name: str | None = None,
+    model_params: dict[str, Any] | None = None,
 ) -> FastAPI:
     """
     创建 FastAPI 应用。
@@ -75,14 +72,13 @@ def create_app(
     )
 
     # 全局变量存储模型和预测器
-    predictor: Optional[Predictor] = None
-    model_info: Dict[str, Any] = {}
+    predictor: Predictor | None = None
+    model_info: dict[str, Any] = {}
 
     @app.on_event("startup")
     async def startup_event():
         """启动时加载模型。"""
         nonlocal predictor, model_info
-
         try:
             if pipeline_config_path:
                 # 从 pipeline 配置加载
@@ -116,14 +112,11 @@ def create_app(
 
                 model_params["input_dim"] = input_dim
                 model = orchestrator.setup_model(input_dim=input_dim)
-            else:
+            elif model_name and model_params:
                 # 直接使用提供的参数
-                if model_name is None or model_params is None:
-                    raise ValueError("Either pipeline_config_path or (model_name and model_params) must be provided")
-                # Store for later use in model_info
-                stored_model_name = model_name
-                stored_model_params = model_params.copy() if model_params else {}
                 model = get_model(model_name, **model_params)
+            else:
+                raise ValueError("Must provide either pipeline_config_path or (model_name and model_params)")
 
             # 加载权重
             if model_path:
@@ -133,142 +126,122 @@ def create_app(
 
             # 创建预测器
             predictor = Predictor(model)
-            # Build model_info
-            if pipeline_config_path:
-                # model_name and model_params already set above
-                final_model_name = model_name
-                final_model_params = model_params
-            else:
-                # Use stored values
-                final_model_name = stored_model_name
-                final_model_params = stored_model_params
             model_info = {
-                "model_name": final_model_name or "unknown",
-                "model_path": model_path or "unknown",
-                "input_dim": final_model_params.get("input_dim", "unknown") if final_model_params else "unknown",
+                "model_name": model_name or model_config.get("name", "unknown"),
+                "model_params": model_params or model_config.get("params", {}),
             }
-
             logger.info("Model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
-            import traceback
+            # 不抛出异常，允许应用启动（用于健康检查）
 
-            logger.error(traceback.format_exc())
-            # 不抛出异常，让应用启动，但预测时会返回错误
-            predictor = None
-            model_info = {"error": str(e)}
-
-    @app.get("/", response_model=HealthResponse)
-    async def health_check():
+    @app.get("/")
+    async def health_check() -> HealthResponse:
         """健康检查。"""
+        if predictor is None:
+            return HealthResponse(
+                status="unavailable",
+                message="Model not loaded",
+                model_info=None,
+            )
         return HealthResponse(
             status="healthy",
-            message=HTTPStatus.OK.phrase,
-            model_info=model_info if model_info else None,
+            message="Model is ready",
+            model_info=model_info,
         )
 
-    @app.post("/predict", response_model=PredictResponse)
-    async def predict(request: PredictRequest):
+    @app.post("/predict")
+    async def predict(request: PredictRequest) -> PredictResponse:
         """单样本预测。"""
         if predictor is None:
-            raise HTTPException(status_code=HTTPStatus.SERVICE_UNAVAILABLE, detail="Model not loaded")
+            raise HTTPException(status_code=503, detail="Model not loaded")
 
         try:
-            # 转换为 tensor
+            # 转换为 torch.Tensor
             features_tensor = torch.tensor(request.features, dtype=torch.float32)
 
-            # 创建临时 dataloader（使用字典格式）
-            from torch.utils.data import DataLoader, Dataset
+            # 创建临时数据集
+            from torch.utils.data import Dataset
 
             class DictDataset(Dataset):
-                def __init__(self, features):
-                    self.features = features
+                def __init__(self, data):
+                    self.data = data
 
                 def __len__(self):
-                    return len(self.features)
+                    return len(self.data)
 
                 def __getitem__(self, idx):
-                    return {"features": self.features[idx]}
+                    return self.data[idx]
 
-            dataset = DictDataset(features_tensor)
+            dataset = DictDataset([{"features": features_tensor}])
+            from torch.utils.data import DataLoader
+
             dataloader = DataLoader(dataset, batch_size=len(request.features))
 
             # 预测
-            results = predictor.predict(
-                dataloader,
-                return_probabilities=request.return_probabilities,
-            )
+            results = predictor.predict(dataloader, return_probabilities=request.return_probabilities)
 
             predictions = [r["prediction"] for r in results]
             probabilities = None
-            if request.return_probabilities:
-                probabilities = [r.get("probabilities", []) for r in results]
+            if request.return_probabilities and "probabilities" in results[0]:
+                probabilities = [r["probabilities"] for r in results]
 
-            return PredictResponse(
-                predictions=predictions,
-                probabilities=probabilities,
-            )
+            return PredictResponse(predictions=predictions, probabilities=probabilities)
         except Exception as e:
-            logger.error(f"Prediction failed: {e}")
-            raise HTTPException(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
+            logger.error(f"Prediction error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/predict/batch", response_model=PredictResponse)
-    async def predict_batch(request: BatchPredictRequest):
+    @app.post("/predict/batch")
+    async def predict_batch(request: BatchPredictRequest) -> PredictResponse:
         """批量预测。"""
         if predictor is None:
-            raise HTTPException(status_code=HTTPStatus.SERVICE_UNAVAILABLE, detail="Model not loaded")
+            raise HTTPException(status_code=503, detail="Model not loaded")
 
         try:
-            # 提取特征
-            features_list = []
+            # 转换为 torch.Tensor
+            from torch.utils.data import Dataset
+
+            class DictDataset(Dataset):
+                def __init__(self, data):
+                    self.data = data
+
+                def __len__(self):
+                    return len(self.data)
+
+                def __getitem__(self, idx):
+                    return self.data[idx]
+
+            # 提取所有样本的特征
+            all_features = []
             for sample in request.samples:
                 if "features" in sample:
-                    features_list.append(sample["features"])
+                    all_features.append(sample["features"])
                 else:
                     raise ValueError("Each sample must have 'features' key")
 
-            # 转换为 tensor
-            features_tensor = torch.tensor(features_list, dtype=torch.float32)
-
-            # 创建临时 dataloader（使用字典格式）
+            features_tensor = torch.tensor(all_features, dtype=torch.float32)
+            dataset = DictDataset([{"features": features_tensor}])
             from torch.utils.data import DataLoader
 
-            class DictDataset:
-                def __init__(self, features):
-                    self.features = features
-
-                def __len__(self):
-                    return len(self.features)
-
-                def __getitem__(self, idx):
-                    return {"features": self.features[idx]}
-
-            dataset = DictDataset(features_tensor)
-            dataloader = DataLoader(dataset, batch_size=len(features_list))
+            dataloader = DataLoader(dataset, batch_size=len(all_features))
 
             # 预测
-            results = predictor.predict(
-                dataloader,
-                return_probabilities=request.return_probabilities,
-            )
+            results = predictor.predict(dataloader, return_probabilities=request.return_probabilities)
 
             predictions = [r["prediction"] for r in results]
             probabilities = None
-            if request.return_probabilities:
-                probabilities = [r.get("probabilities", []) for r in results]
+            if request.return_probabilities and "probabilities" in results[0]:
+                probabilities = [r["probabilities"] for r in results]
 
-            return PredictResponse(
-                predictions=predictions,
-                probabilities=probabilities,
-            )
+            return PredictResponse(predictions=predictions, probabilities=probabilities)
         except Exception as e:
-            logger.error(f"Batch prediction failed: {e}")
-            raise HTTPException(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, detail=str(e))
+            logger.error(f"Batch prediction error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     return app
 
 
-def serve_fastapi(model_path: str, pipeline_config_path: Optional[str] = None, host: str = "0.0.0.0", port: int = 8000, **kwargs):
+def serve_fastapi(model_path: str, pipeline_config_path: str | None = None, host: str = "0.0.0.0", port: int = 8000, **kwargs):
     """
     启动 FastAPI 服务。
 

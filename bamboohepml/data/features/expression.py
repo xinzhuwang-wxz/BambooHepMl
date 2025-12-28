@@ -8,8 +8,6 @@
 - 表达式与数据源解耦
 """
 
-from __future__ import annotations
-
 import ast
 import math
 from typing import Any, Callable

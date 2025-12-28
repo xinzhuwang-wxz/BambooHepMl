@@ -7,8 +7,6 @@ Predictor 类
 - 多任务预测
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 import torch

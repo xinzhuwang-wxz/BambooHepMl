@@ -7,8 +7,6 @@ Evaluator 类
 - 多任务评估
 """
 
-from __future__ import annotations
-
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
