@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 import onnx
-import onnxruntime as ort
 import torch
 
 from ..config import logger
@@ -81,26 +80,6 @@ def export_task(
     model.load_state_dict(state_dict)
     model.eval()
 
-    # 3. 准备输入形状
-    if input_shape is None:
-        # 从数据中推断
-        dataset = orchestrator.setup_data()
-        sample = next(iter(dataset))
-        input_key = None
-        for key in sample.keys():
-            if key.startswith("_") and key != "_label_":
-                input_key = key
-                break
-
-        if input_key is None:
-            raise ValueError("Could not find input key in dataset")
-
-        input_value = sample[input_key]
-        if isinstance(input_value, torch.Tensor):
-            input_shape = tuple(input_value.shape)
-        else:
-            raise ValueError(f"Unexpected input type: {type(input_value)}")
-
     # 创建示例输入
     dummy_input = torch.randn(1, *input_shape[1:]) if len(input_shape) > 1 else torch.randn(1, input_shape[0])
 
@@ -109,9 +88,21 @@ def export_task(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # 创建包装类，将 tensor 输入转换为字典
+    class ModelWrapper(torch.nn.Module):
+        def __init__(self, model):
+            super().__init__()
+            self.model = model
+
+        def forward(self, features):
+            return self.model({"features": features})
+
+    wrapped_model = ModelWrapper(model)
+    wrapped_model.eval()
+
     torch.onnx.export(
-        model,
-        {"features": dummy_input},
+        wrapped_model,
+        dummy_input,
         str(output_path),
         input_names=["features"],
         output_names=["output"],
@@ -133,13 +124,18 @@ def export_task(
     # 6. 测试 ONNX 模型（可选）
     try:
         logger.info("Testing ONNX model...")
-        ort_session = ort.InferenceSession(str(output_path))
+        try:
+            import onnxruntime as ort
+        except ImportError:
+            logger.warning("onnxruntime not available, skipping ONNX model test")
+        else:
+            ort_session = ort.InferenceSession(str(output_path))
 
-        # 运行推理
-        ort_inputs = {ort_session.get_inputs()[0].name: dummy_input.numpy()}
-        ort_outs = ort_session.run(None, ort_inputs)
+            # 运行推理
+            ort_inputs = {ort_session.get_inputs()[0].name: dummy_input.numpy()}
+            ort_outs = ort_session.run(None, ort_inputs)
 
-        logger.info(f"ONNX model test passed! Output shape: {ort_outs[0].shape}")
+            logger.info(f"ONNX model test passed! Output shape: {ort_outs[0].shape}")
     except Exception as e:
         logger.warning(f"ONNX model test failed: {e}")
 

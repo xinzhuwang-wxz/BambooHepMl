@@ -125,18 +125,22 @@ def get_run_id(experiment_name: str, trial_id: str) -> str:
     return run.run_id
 
 
-def dict_to_list(data: dict, keys: list[str]) -> list[dict[str, Any]]:
-    """将字典转换为字典列表。
+class DictDataset(torch.utils.data.Dataset):
+    """简单的字典数据集，用于将字典数据转换为 DataLoader 输入。"""
 
-    Args:
-        data (Dict): 输入字典。
-        keys (List[str]): 要包含在输出字典列表中的键。
+    def __init__(self, data: list[dict[str, Any]]):
+        """
+        初始化数据集。
 
-    Returns:
-        List[Dict[str, Any]]: 输出字典列表。
-    """
-    list_of_dicts = []
-    for i in range(len(data[keys[0]])):
-        new_dict = {key: data[key][i] for key in keys}
-        list_of_dicts.append(new_dict)
-    return list_of_dicts
+        Args:
+            data: 字典列表，每个字典包含一个样本的数据
+        """
+        self.data = data
+
+    def __len__(self) -> int:
+        """返回数据集大小。"""
+        return len(self.data)
+
+    def __getitem__(self, idx: int) -> dict[str, Any]:
+        """获取指定索引的样本。"""
+        return self.data[idx]

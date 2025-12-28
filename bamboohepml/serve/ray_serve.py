@@ -145,22 +145,12 @@ class RayServeDeployment:
             # 转换为 torch.Tensor
             features_tensor = torch.tensor(features, dtype=torch.float32)
 
-            # 创建临时数据集
-            from torch.utils.data import Dataset
-
-            class DictDataset(Dataset):
-                def __init__(self, data):
-                    self.data = data
-
-                def __len__(self):
-                    return len(self.data)
-
-                def __getitem__(self, idx):
-                    return self.data[idx]
-
-            dataset = DictDataset([{"features": features_tensor}])
+            # 创建数据集
             from torch.utils.data import DataLoader
 
+            from ..utils import DictDataset
+
+            dataset = DictDataset([{"_features": features_tensor}])
             dataloader = DataLoader(dataset, batch_size=len(features))
 
             # 预测

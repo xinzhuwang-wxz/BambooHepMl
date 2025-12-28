@@ -92,10 +92,10 @@ def predict_task(
     state_dict = torch.load(model_path, map_location="cpu")
     model.load_state_dict(state_dict)
 
-    # 使用 Predictor
-    predictor = Predictor(model)
+    # 使用 Predictor（会自动处理设备）
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
+    predictor = Predictor(model, device=device)
 
     # 4. 创建 DataLoader
     dataloader = DataLoader(

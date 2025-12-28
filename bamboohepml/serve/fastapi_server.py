@@ -174,22 +174,12 @@ def create_app(
             # 转换为 torch.Tensor
             features_tensor = torch.tensor(request.features, dtype=torch.float32)
 
-            # 创建临时数据集
-            from torch.utils.data import Dataset
-
-            class DictDataset(Dataset):
-                def __init__(self, data):
-                    self.data = data
-
-                def __len__(self):
-                    return len(self.data)
-
-                def __getitem__(self, idx):
-                    return self.data[idx]
-
-            dataset = DictDataset([{"features": features_tensor}])
+            # 创建数据集
             from torch.utils.data import DataLoader
 
+            from ..utils import DictDataset
+
+            dataset = DictDataset([{"_features": features_tensor}])
             dataloader = DataLoader(dataset, batch_size=len(request.features))
 
             # 预测
@@ -212,19 +202,6 @@ def create_app(
             raise HTTPException(status_code=503, detail="Model not loaded")
 
         try:
-            # 转换为 torch.Tensor
-            from torch.utils.data import Dataset
-
-            class DictDataset(Dataset):
-                def __init__(self, data):
-                    self.data = data
-
-                def __len__(self):
-                    return len(self.data)
-
-                def __getitem__(self, idx):
-                    return self.data[idx]
-
             # 提取所有样本的特征
             all_features = []
             for sample in request.samples:
@@ -233,10 +210,15 @@ def create_app(
                 else:
                     raise ValueError("Each sample must have 'features' key")
 
+            # 转换为 torch.Tensor
             features_tensor = torch.tensor(all_features, dtype=torch.float32)
-            dataset = DictDataset([{"features": features_tensor}])
+
+            # 创建数据集
             from torch.utils.data import DataLoader
 
+            from ..utils import DictDataset
+
+            dataset = DictDataset([{"_features": features_tensor}])
             dataloader = DataLoader(dataset, batch_size=len(all_features))
 
             # 预测

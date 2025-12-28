@@ -144,18 +144,14 @@ class Trainer:
             for callback in self.callbacks:
                 callback.on_batch_begin(batch_idx, {"batch": batch_idx})
 
-            # 准备输入
-            if isinstance(batch, dict):
-                inputs = batch[self.input_key].to(self.device)
-                labels = batch.get("_label_", None)
-                if labels is not None:
-                    labels = labels.to(self.device)
-            else:
-                # 兼容元组格式 (batch_dict, labels)
-                batch_dict, labels = batch
-                inputs = batch_dict[self.input_key].to(self.device)
-                if labels is not None:
-                    labels = labels.to(self.device)
+            # 准备输入（batch 必须是字典格式）
+            if not isinstance(batch, dict):
+                raise ValueError(f"Batch must be a dict, got {type(batch)}")
+
+            inputs = batch[self.input_key].to(self.device)
+            labels = batch.get("_label_", None)
+            if labels is not None:
+                labels = labels.to(self.device)
 
             # 前向传播
             self.optimizer.zero_grad()
