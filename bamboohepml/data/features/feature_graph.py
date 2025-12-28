@@ -140,9 +140,11 @@ class FeatureGraph:
             ValueError: 如果存在循环依赖
         """
         # 计算入度（有多少节点依赖此节点）
+        # 注意：edge (source, target) 表示 source 依赖 target
+        # 所以 target 的入度应该增加（有多少节点依赖它）
         in_degree: Dict[str, int] = {name: 0 for name in self.nodes}
         for source, target in self.edges:
-            in_degree[source] += 1
+            in_degree[target] += 1
 
         # 找到所有入度为 0 的节点（没有依赖的节点）
         queue: List[str] = [name for name, degree in in_degree.items() if degree == 0]

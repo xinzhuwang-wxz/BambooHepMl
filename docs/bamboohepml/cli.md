@@ -44,7 +44,25 @@
 
 服务命令，启动推理服务（FastAPI 或 Ray Serve）。
 
-::: bamboohepml.serve.cli.serve_app
+::: bamboohepml.cli.serve_app
+    options:
+      show_source: true
+      heading_level: 3
+
+### serve fastapi
+
+启动 FastAPI 服务。
+
+::: bamboohepml.serve.cli.fastapi
+    options:
+      show_source: true
+      heading_level: 3
+
+### serve ray
+
+启动 Ray Serve 服务。
+
+::: bamboohepml.serve.cli.ray
     options:
       show_source: true
       heading_level: 3

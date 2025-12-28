@@ -137,6 +137,11 @@ def create_app(
             logger.info("Model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
+            # 不抛出异常，让应用启动，但预测时会返回错误
+            predictor = None
             raise
 
     @app.get("/", response_model=HealthResponse)

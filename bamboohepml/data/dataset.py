@@ -65,9 +65,28 @@ def _finalize_inputs(table: ak.Array, data_config: DataConfig) -> Dict[str, Any]
         if data_config._auto_standardization and params["center"] == "auto":
             raise ValueError(f"No valid standardization params for {k}")
 
+        # 如果变量不在表中，尝试通过表达式构建（处理 Jet.pt 这种情况）
+        if k not in table.fields:
+            # 尝试通过表达式构建（如果包含点号，可能是属性访问）
+            if "." in k:
+                from bamboohepml.data.tools import _eval_expr
+
+                try:
+                    # 构建新变量并添加到表中
+                    new_value = _eval_expr(k, table)
+                    # 使用 ak.with_field 添加新字段
+                    table = ak.with_field(table, new_value, k)
+                except Exception as e:
+                    _logger.warning(f"Could not build variable {k} from expression: {e}, skipping")
+                    continue
+            else:
+                _logger.warning(f"Variable {k} not found in table, skipping")
+                continue
+
         # 标准化和裁剪
         if params["center"] is not None:
-            table[k] = _clip((table[k] - params["center"]) * params["scale"], params["min"], params["max"])
+            value = _clip((table[k] - params["center"]) * params["scale"], params["min"], params["max"])
+            table = ak.with_field(table, value, k)
 
         # Padding（如果指定了长度）
         if params["length"] is not None:
@@ -75,12 +94,22 @@ def _finalize_inputs(table: ak.Array, data_config: DataConfig) -> Dict[str, Any]
                 pad_fn = partial(_repeat_pad, shuffle=False)
             else:
                 pad_fn = partial(_pad, value=params["pad_value"])
-            table[k] = pad_fn(table[k], params["length"])
+            value = pad_fn(table[k], params["length"])
+            table = ak.with_field(table, value, k)
 
         # 检查 NaN
-        if np.any(np.isnan(table[k])):
-            _logger.warning(f"Found NaN in {k}, silently converting it to 0.")
-            table[k] = np.nan_to_num(table[k])
+        current_value = table[k]
+        if isinstance(current_value, ak.Array):
+            numpy_k = ak.to_numpy(current_value)
+            if np.any(np.isnan(numpy_k)):
+                _logger.warning(f"Found NaN in {k}, silently converting it to 0.")
+                value = np.nan_to_num(numpy_k)
+                table = ak.with_field(table, value, k)
+        elif isinstance(current_value, np.ndarray):
+            if np.any(np.isnan(current_value)):
+                _logger.warning(f"Found NaN in {k}, silently converting it to 0.")
+                value = np.nan_to_num(current_value)
+                table = ak.with_field(table, value, k)
 
     # 4. 堆叠变量（为每个输入组）
     for k, names in data_config.input_dicts.items():

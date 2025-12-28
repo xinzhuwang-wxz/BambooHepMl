@@ -162,7 +162,12 @@ def test_padding_mask():
     # Padding 到长度 5
     padded = _pad(jet_pt, maxlen=5, value=0.0)
     print(f"原始形状: {[len(x) for x in jet_pt]}")
-    print(f"Padding 后形状: {padded.shape}")
+    # Convert to numpy to get shape
+    if isinstance(padded, ak.Array):
+        padded_np = ak.to_numpy(padded)
+        print(f"Padding 后形状: {padded_np.shape}")
+    else:
+        print(f"Padding 后形状: {padded.shape}")
 
     # 生成 mask
     mask = (padded != 0).any(axis=1)  # 假设 padding 值为 0

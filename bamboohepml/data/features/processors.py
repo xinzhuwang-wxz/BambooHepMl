@@ -130,12 +130,14 @@ class Clipper:
             return data
 
         if isinstance(data, ak.Array):
-            if self.min_val is not None and self.max_val is not None:
-                return ak.clip(data, self.min_val, self.max_val)
-            elif self.min_val is not None:
-                return ak.clip(data, self.min_val, None)
+            # Convert to numpy for clipping, then back to awkward
+            numpy_data = ak.to_numpy(data)
+            clipped = np.clip(numpy_data, self.min_val, self.max_val)
+            # Try to preserve structure if possible
+            if data.ndim == 1:
+                return ak.Array(clipped)
             else:
-                return ak.clip(data, None, self.max_val)
+                return ak.from_numpy(clipped)
         else:
             return np.clip(data, self.min_val, self.max_val)
 

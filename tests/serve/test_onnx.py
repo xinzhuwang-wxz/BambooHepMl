@@ -21,9 +21,13 @@ def test_onnx_export_and_predict(temp_dir, sample_model, sample_features):
     onnx_path = temp_dir / "test_model.onnx"
     dummy_input = torch.randn(1, 10)
 
+    # Create a wrapper function for ONNX export
+    def forward_wrapper(features):
+        return sample_model({"features": features})
+
     torch.onnx.export(
-        sample_model,
-        {"features": dummy_input},
+        forward_wrapper,
+        dummy_input,
         str(onnx_path),
         input_names=["features"],
         output_names=["output"],
@@ -50,9 +54,13 @@ def test_onnx_batch_predict(temp_dir, sample_model, sample_features):
     onnx_path = temp_dir / "test_model.onnx"
     dummy_input = torch.randn(1, 10)
 
+    # Create a wrapper function for ONNX export
+    def forward_wrapper(features):
+        return sample_model({"features": features})
+
     torch.onnx.export(
-        sample_model,
-        {"features": dummy_input},
+        forward_wrapper,
+        dummy_input,
         str(onnx_path),
         input_names=["features"],
         output_names=["output"],
@@ -75,9 +83,13 @@ def test_onnx_model_info(temp_dir, sample_model):
     onnx_path = temp_dir / "test_model.onnx"
     dummy_input = torch.randn(1, 10)
 
+    # Create a wrapper function for ONNX export
+    def forward_wrapper(features):
+        return sample_model({"features": features})
+
     torch.onnx.export(
-        sample_model,
-        {"features": dummy_input},
+        forward_wrapper,
+        dummy_input,
         str(onnx_path),
         input_names=["features"],
         output_names=["output"],

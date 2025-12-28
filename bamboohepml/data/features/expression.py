@@ -89,10 +89,10 @@ class OperatorRegistry:
         self.register("log", lambda x: np.log(x) if isinstance(x, np.ndarray) else ak.log(x))
         self.register("log1p", lambda x: np.log1p(x) if isinstance(x, np.ndarray) else ak.log1p(x))
         self.register("exp", lambda x: np.exp(x) if isinstance(x, np.ndarray) else ak.exp(x))
-        self.register("sqrt", lambda x: np.sqrt(x) if isinstance(x, np.ndarray) else ak.sqrt(x))
-        self.register("abs", lambda x: np.abs(x) if isinstance(x, np.ndarray) else ak.abs(x))
-        self.register("sin", lambda x: np.sin(x) if isinstance(x, np.ndarray) else ak.sin(x))
-        self.register("cos", lambda x: np.cos(x) if isinstance(x, np.ndarray) else ak.cos(x))
+        self.register("sqrt", lambda x: np.sqrt(ak.to_numpy(x)) if isinstance(x, ak.Array) else np.sqrt(x))
+        self.register("abs", lambda x: np.abs(ak.to_numpy(x)) if isinstance(x, ak.Array) else np.abs(x))
+        self.register("sin", lambda x: np.sin(ak.to_numpy(x)) if isinstance(x, ak.Array) else np.sin(x))
+        self.register("cos", lambda x: np.cos(ak.to_numpy(x)) if isinstance(x, ak.Array) else np.cos(x))
 
         # HEP 专用函数
         self.register("delta_r", self._delta_r)
