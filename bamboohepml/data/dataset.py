@@ -37,7 +37,8 @@ def _collate_awkward_array_fn(batch, *, collate_fn_map=None):
     return _stack(batch, axis=0)
 
 
-# _finalize_inputs 已废弃，现在使用 FeatureGraph.build_batch() 替代
+# _finalize_inputs 已废弃
+# _apply_feature_system 已废弃
 
 
 def _get_reweight_indices(weights, up_sample=True, max_resample=10, weight_scale=1):
@@ -95,6 +96,10 @@ class HEPDataset(IterableDataset):
     """
     HEP 数据集类
 
+    注意：此数据集将所有请求的数据加载到内存中。对于大型数据集，请确保 `load_range` 设置适当，
+    或使用能够分块流式传输的 DataSource（目前 ROOTDataSource 按文件加载全部指定范围）。
+    为了提高性能，数据在首次加载后会被缓存。
+
     支持：
     - Jagged array（变长数组）
     - Padding + Mask
@@ -143,6 +148,11 @@ class HEPDataset(IterableDataset):
         self.max_resample = max_resample
         self.extra_selection = selection
 
+        # 内部缓存
+        self._cached_batch = None
+        self._cached_weights = None
+        self._num_events = 0
+
         # 注册 collate 函数
         from torch.utils.data._utils.collate import default_collate_fn_map
 
@@ -154,8 +164,29 @@ class HEPDataset(IterableDataset):
         Returns:
             tuple: (batch, indices) - 处理后的批次（包含特征张量）和索引
         """
+        # 检查缓存
+        if self._cached_batch is not None:
+            # 使用缓存数据重新生成索引（支持每个 epoch 重新采样/打乱）
+            if self.reweight and self._cached_weights is not None:
+                indices = _get_reweight_indices(
+                    self._cached_weights, up_sample=self.up_sample, weight_scale=self.weight_scale, max_resample=self.max_resample
+                )
+            else:
+                indices = np.arange(self._num_events)
+
+            if self.shuffle:
+                np.random.shuffle(indices)
+
+            return self._cached_batch, indices
+
         # 1. 确定要加载的分支
         load_branches = self.data_config.train_load_branches if self.for_training else self.data_config.test_load_branches
+
+        # 过滤掉计算字段（只保留原始字段）
+        # 计算字段在 aux_branches 中，不应该被加载
+        aux_branches = self.data_config.train_aux_branches if self.for_training else self.data_config.test_aux_branches
+        if load_branches:
+            load_branches = {b for b in load_branches if b not in aux_branches}
 
         # 如果 load_branches 为空，从 FeatureGraph 提取需要的数据源字段
         if not load_branches and self.feature_graph.expression_engine is not None:
@@ -180,19 +211,25 @@ class HEPDataset(IterableDataset):
 
             load_branches = required_fields
 
-        # 2. 加载数据
-        # 确保 load_branches 是 set 类型，并添加标签字段（如果存在）
+        # 2. 确保 load_branches 是 set 类型
         if isinstance(load_branches, set):
             load_branches = load_branches.copy()
         else:
             load_branches = set(load_branches) if load_branches else set()
 
-        if self.data_config.label_names:
-            load_branches |= set(self.data_config.label_names)
+        # 3. 添加标签字段的原始数据源（如果存在）
+        # label_value 中的字段（如 is_signal）是原始字段，需要被加载
+        if self.data_config.label_value:
+            if isinstance(self.data_config.label_value, list):
+                # simple label type: label_value is a list like ["is_signal"]
+                load_branches |= set(self.data_config.label_value)
+            elif isinstance(self.data_config.label_value, dict):
+                # complex label type: label_value is a dict
+                load_branches |= set(self.data_config.label_value.keys())
 
         table = self.data_source.load_branches(list(load_branches))
 
-        # 3. 应用选择条件
+        # 4. 应用选择条件
         selection = self.data_config.selection if self.for_training else self.data_config.test_time_selection
         if self.extra_selection:
             if selection:
@@ -205,33 +242,34 @@ class HEPDataset(IterableDataset):
         if len(table) == 0:
             return {}, []  # 返回空批次字典和空索引列表
 
-        # 4. 构建新变量
+        # 5. 构建新变量
         aux_branches = self.data_config.train_aux_branches if self.for_training else self.data_config.test_aux_branches
         table = _build_new_variables(table, {k: v for k, v in self.data_config.var_funcs.items() if k in aux_branches})
 
-        # 5. 检查标签
+        # 6. 检查标签
         if self.data_config.label_type == "simple" and self.for_training:
             _check_labels(table, self.data_config)
 
-        # 6. 计算重加权索引
+        # 7. 计算重加权索引
+        weights = None
         if self.reweight and self.data_config.weight_name is not None:
             weights = _build_weights(table, self.data_config)
             indices = _get_reweight_indices(weights, up_sample=self.up_sample, weight_scale=self.weight_scale, max_resample=self.max_resample)
         else:
-            indices = np.arange(len(table[self.data_config.label_names[0]]))
+            indices = np.arange(len(table))
 
-        # 7. 打乱
+        # 8. 打乱
         if self.shuffle:
             np.random.shuffle(indices)
 
-        # 8. 使用 FeatureGraph 构建模型输入批次
+        # 9. 使用 FeatureGraph 构建模型输入批次
         # FeatureGraph.build_batch() 会：
         # - 按执行顺序计算所有特征
         # - 应用预处理（normalize/clip/pad）
         # - 返回 torch.Tensor 字典（event/object/mask）
         feature_batch = self.feature_graph.build_batch(table)
 
-        # 9. 添加标签和观察者变量
+        # 10. 添加标签和观察者变量
         batch = {}
         batch.update(feature_batch)  # event, object, mask
 
@@ -245,6 +283,11 @@ class HEPDataset(IterableDataset):
         for obs_name in self.data_config.z_variables:
             if obs_name in table.fields:
                 batch[obs_name] = table[obs_name]  # 保持为 ak.Array
+
+        # 缓存结果
+        self._cached_batch = batch
+        self._cached_weights = weights
+        self._num_events = len(table)
 
         return batch, indices
 
@@ -288,6 +331,11 @@ class HEPDataset(IterableDataset):
         Returns:
             int: 数据集长度
         """
+        # 如果缓存已初始化，使用缓存的事件数
+        if self._num_events > 0:
+            return self._num_events
+
+        # 否则尝试从数据源获取
         num_events = self.data_source.get_num_events()
         if num_events is not None:
             return num_events
