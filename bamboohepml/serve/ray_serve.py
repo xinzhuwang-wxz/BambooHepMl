@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 Ray Serve 集成
 
 使用 Ray Serve 部署模型服务。

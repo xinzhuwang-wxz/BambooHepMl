@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 本地调度器
 
 直接在本地执行任务，不使用集群调度系统。

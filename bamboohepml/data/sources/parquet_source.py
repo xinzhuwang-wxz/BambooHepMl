@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 Parquet 数据源实现
 """
 

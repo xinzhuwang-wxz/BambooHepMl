@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 统一 Trainer
 
 支持：

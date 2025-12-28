@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 HDF5 数据源实现
 """
 

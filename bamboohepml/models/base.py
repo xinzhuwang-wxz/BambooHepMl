@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 模型基类
 
 定义任务无关的模型接口，支持：

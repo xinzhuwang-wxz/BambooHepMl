@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 特征依赖图（DAG）模块
 
 提供：

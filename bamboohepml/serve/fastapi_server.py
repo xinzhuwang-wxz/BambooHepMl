@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 FastAPI 推理服务
 
 提供 RESTful API 接口用于模型推理。

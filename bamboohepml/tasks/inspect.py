@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 检查任务
 
 支持：

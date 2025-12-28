@@ -1,4 +1,5 @@
 """
+from __future__ import annotations
 训练任务
 
 借鉴 Made-With-ML 的训练流程，支持：
