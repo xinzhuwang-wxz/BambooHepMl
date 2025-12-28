@@ -35,7 +35,7 @@ onnxruntime>=1.12.0
 # Documentation
 mkdocs>=1.4.0
 mkdocstrings[python]>=0.18.0
-griffe<0.40
+griffe>=0.30.0,<0.40.0
 
 # Styling
 black>=24.0.0
