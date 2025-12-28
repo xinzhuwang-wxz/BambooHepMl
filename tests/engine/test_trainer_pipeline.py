@@ -20,6 +20,7 @@ import sys  # noqa: E402
 if sys.version_info < (3, 9):
     # Prevent torch.onnx import which triggers onnxscript on Python 3.8
     import os  # noqa: E402
+
     os.environ["TORCH_DISABLE_ONNX"] = "1"
 
 import torch  # noqa: E402
