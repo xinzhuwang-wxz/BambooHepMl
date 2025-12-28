@@ -7,7 +7,7 @@ FastAPI 推理服务
 from __future__ import annotations
 
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import torch
 from fastapi import FastAPI, HTTPException
@@ -23,14 +23,14 @@ from ..pipeline import PipelineOrchestrator
 class PredictRequest(BaseModel):
     """预测请求模型。"""
 
-    features: list[list[float]] = Field(..., description="特征向量列表")
+    features: List[List[float]] = Field(..., description="特征向量列表")
     return_probabilities: bool = Field(False, description="是否返回概率")
 
 
 class BatchPredictRequest(BaseModel):
     """批量预测请求模型。"""
 
-    samples: list[dict[str, Any]] = Field(..., description="样本列表")
+    samples: List[Dict[str, Any]] = Field(..., description="样本列表")
     return_probabilities: bool = Field(False, description="是否返回概率")
 
 
@@ -38,8 +38,8 @@ class BatchPredictRequest(BaseModel):
 class PredictResponse(BaseModel):
     """预测响应模型。"""
 
-    predictions: list[Any] = Field(..., description="预测结果列表")
-    probabilities: list[list[float]] | None = Field(None, description="概率列表（如果请求）")
+    predictions: List[Any] = Field(..., description="预测结果列表")
+    probabilities: Optional[List[List[float]]] = Field(None, description="概率列表（如果请求）")
 
 
 class HealthResponse(BaseModel):
@@ -47,7 +47,7 @@ class HealthResponse(BaseModel):
 
     status: str = Field(..., description="状态")
     message: str = Field(..., description="消息")
-    model_info: dict[str, Any] | None = Field(None, description="模型信息")
+    model_info: Optional[Dict[str, Any]] = Field(None, description="模型信息")
 
 
 def create_app(
