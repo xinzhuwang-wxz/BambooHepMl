@@ -24,14 +24,16 @@ class Evaluator:
     - 多任务评估
     """
 
-    def __init__(self, task_type: str = "classification"):
+    def __init__(self, task_type: str = "classification", input_key: str | None = None):
         """
         初始化评估器。
 
         Args:
             task_type: 任务类型（'classification', 'regression', 'multitask'）
+            input_key: 输入键名（'event', 'object' 或 '_features' 等），如果为 None 则自动检测
         """
         self.task_type = task_type
+        self.input_key = input_key
 
     def evaluate(
         self,
@@ -63,16 +65,27 @@ class Evaluator:
         total_loss = 0.0
         num_batches = 0
 
-        # 找到输入键
-        sample = next(iter(dataloader))
-        input_key = None
-        for key in sample.keys():
-            if key.startswith("_") and key != "_label_":
-                input_key = key
-                break
+        # 确定输入键
+        if self.input_key is None:
+            # 自动检测输入键（与 Trainer 逻辑一致）
+            sample = next(iter(dataloader))
+            input_key = None
+            # 优先查找 event，然后是 object
+            if "event" in sample:
+                input_key = "event"
+            elif "object" in sample:
+                input_key = "object"
+            else:
+                # 向后兼容：查找以 _ 开头的键
+                for key in sample.keys():
+                    if key.startswith("_") and key != "_label_":
+                        input_key = key
+                        break
 
-        if input_key is None:
-            raise ValueError("Could not find input key in dataloader")
+            if input_key is None:
+                raise ValueError(f"Could not find input key in dataloader. Available keys: {list(sample.keys())}")
+        else:
+            input_key = self.input_key
 
         with torch.no_grad():
             for batch in dataloader:
@@ -84,10 +97,18 @@ class Evaluator:
 
                 # 计算损失（如果提供）
                 if loss_fn is not None:
+                    # 根据 task_type 决定 labels 的类型
+                    # CrossEntropyLoss 需要 Long 类型，MSELoss 需要 Float 类型
                     if self.task_type == "classification":
+                        # 分类任务：确保 labels 是 Long 类型
+                        if labels.dtype != torch.long:
+                            labels = labels.long()
                         loss = loss_fn(outputs, labels)
-                    else:
-                        loss = loss_fn(outputs.squeeze(), labels.float())
+                    else:  # regression
+                        # 回归任务：确保 labels 是 Float 类型
+                        if labels.dtype != torch.float32:
+                            labels = labels.float()
+                        loss = loss_fn(outputs.squeeze(), labels)
                     total_loss += loss.item()
                     num_batches += 1
 

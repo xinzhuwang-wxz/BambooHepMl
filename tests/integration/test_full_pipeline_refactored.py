@@ -87,7 +87,7 @@ def test_full_pipeline_flow():
 
         # ========== 4. EVAL: 评估模型 ==========
         print("\n4. [EVAL] 评估模型...")
-        evaluator = Evaluator(task_type="classification")
+        evaluator = Evaluator(task_type="classification", input_key="event")
         metrics = evaluator.evaluate(
             model=model,
             dataloader=val_loader,

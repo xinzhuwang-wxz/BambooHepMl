@@ -132,7 +132,7 @@ def test_train_eval_pipeline():
     def collate_fn(batch):
         X, y = zip(*batch)
         return {
-            "_features": torch.stack(X),
+            "event": torch.stack(X),  # 使用 "event" 作为 input_key（与架构对齐）
             "_label_": torch.stack(y),
         }
 
@@ -149,6 +149,7 @@ def test_train_eval_pipeline():
         loss_fn=torch.nn.CrossEntropyLoss(),
         optimizer=torch.optim.Adam(model.parameters(), lr=0.001),
         device=torch.device("cpu"),
+        task_type="classification",
     )
 
     trainer.fit(num_epochs=2)
@@ -156,7 +157,7 @@ def test_train_eval_pipeline():
 
     # 4. 评估
     print("\n4. 评估模型...")
-    evaluator = Evaluator(task_type="classification")
+    evaluator = Evaluator(task_type="classification", input_key="event")
     metrics = evaluator.evaluate(
         model=model,
         dataloader=val_loader,
@@ -188,7 +189,7 @@ def test_export_predict_pipeline():
     def collate_fn(batch):
         X, y = zip(*batch)
         return {
-            "_features": torch.stack(X),
+            "event": torch.stack(X),  # 使用 "event" 作为 input_key（与架构对齐）
             "_label_": torch.stack(y),
         }
 
@@ -200,6 +201,7 @@ def test_export_predict_pipeline():
         loss_fn=torch.nn.CrossEntropyLoss(),
         optimizer=torch.optim.Adam(model.parameters(), lr=0.001),
         device=torch.device("cpu"),
+        task_type="classification",
     )
     trainer.fit(num_epochs=1)
     print("   ✓ 模型训练完成")
@@ -248,7 +250,7 @@ def test_full_pipeline_integration():
     def collate_fn(batch):
         X, y = zip(*batch)
         return {
-            "_features": torch.stack(X),
+            "event": torch.stack(X),  # 使用 "event" 作为 input_key（与架构对齐）
             "_label_": torch.stack(y),
         }
 
@@ -270,13 +272,14 @@ def test_full_pipeline_integration():
         loss_fn=torch.nn.CrossEntropyLoss(),
         optimizer=torch.optim.Adam(model.parameters(), lr=0.001),
         device=torch.device("cpu"),
+        task_type="classification",
     )
     trainer.fit(num_epochs=2)
     print("   ✓ 训练完成")
 
     # 4. Eval: 评估模型
     print("\n4. [EVAL] 评估模型...")
-    evaluator = Evaluator(task_type="classification")
+    evaluator = Evaluator(task_type="classification", input_key="event")
     metrics = evaluator.evaluate(
         model=model,
         dataloader=val_loader,

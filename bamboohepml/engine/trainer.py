@@ -139,8 +139,8 @@ class Trainer:
         # 设置调度器
         self.scheduler = scheduler
 
-        # 设置评估器
-        self.evaluator = Evaluator(task_type="classification" if task_type == "classification" else "regression")
+        # 设置评估器（稍后在找到 input_key 后设置）
+        self._task_type_for_eval = "classification" if task_type == "classification" else "regression"
 
         # 找到输入键（从 FeatureGraph.build_batch 返回的键：event 或 object）
         sample = next(iter(train_loader))
@@ -159,6 +159,9 @@ class Trainer:
 
         if self.input_key is None:
             raise ValueError(f"Could not find input key in train_loader. Available keys: {list(sample.keys())}")
+
+        # 设置评估器（使用找到的 input_key）
+        self.evaluator = Evaluator(task_type=self._task_type_for_eval, input_key=self.input_key)
 
         # 设置 early stopping callback 的模型引用
         for callback in self.callbacks:
