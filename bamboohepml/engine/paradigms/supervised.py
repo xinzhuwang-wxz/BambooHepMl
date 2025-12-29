@@ -71,9 +71,23 @@ class SupervisedParadigm(LearningParadigm):
             loss_fn = self.get_default_loss_fn(task_type)
 
         # 计算损失
-        if task_type == "classification":
+        # 根据 loss_fn 类型决定如何处理 labels
+        # CrossEntropyLoss 需要 Long 类型的 labels，MSELoss 需要 Float 类型
+        if isinstance(loss_fn, nn.CrossEntropyLoss):
+            # 分类任务：确保 labels 是 Long 类型
+            if labels.dtype != torch.long:
+                labels = labels.long()
             loss = loss_fn(outputs, labels)
-        else:  # regression
-            loss = loss_fn(outputs.squeeze(), labels.float())
+        elif isinstance(loss_fn, nn.MSELoss):
+            # 回归任务：确保 labels 是 Float 类型
+            if labels.dtype != torch.float32:
+                labels = labels.float()
+            loss = loss_fn(outputs.squeeze(), labels)
+        else:
+            # 对于其他损失函数，根据 task_type 处理
+            if task_type == "classification":
+                loss = loss_fn(outputs, labels)
+            else:  # regression
+                loss = loss_fn(outputs.squeeze(), labels.float())
 
         return loss
