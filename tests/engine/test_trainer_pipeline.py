@@ -15,12 +15,16 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 os.environ["PYTHONPATH"] = str(project_root) + os.pathsep + os.environ.get("PYTHONPATH", "")
 
-# Mock onnx module before importing torch to avoid PyTorch _dynamo import errors
+# Mock onnx and onnxruntime modules before importing torch to avoid PyTorch _dynamo import errors
 if "onnx" not in sys.modules:
     onnx_mock = ModuleType("onnx")
-    # Create a proper ModuleSpec to satisfy PyTorch _dynamo's import checks
     onnx_mock.__spec__ = ModuleSpec("onnx", None)
     sys.modules["onnx"] = onnx_mock
+
+if "onnxruntime" not in sys.modules:
+    onnxruntime_mock = ModuleType("onnxruntime")
+    onnxruntime_mock.__spec__ = ModuleSpec("onnxruntime", None)
+    sys.modules["onnxruntime"] = onnxruntime_mock
 
 # 导入必须在路径设置之后
 

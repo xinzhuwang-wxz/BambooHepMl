@@ -18,11 +18,13 @@ from types import ModuleType
 
 if "onnx" not in sys.modules:
     onnx_mock = ModuleType("onnx")
-    # Create a proper ModuleSpec to satisfy PyTorch _dynamo's import checks
     onnx_mock.__spec__ = ModuleSpec("onnx", None)
     sys.modules["onnx"] = onnx_mock
 
-sys.modules["onnxruntime"] = MagicMock()
+if "onnxruntime" not in sys.modules:
+    onnxruntime_mock = ModuleType("onnxruntime")
+    onnxruntime_mock.__spec__ = ModuleSpec("onnxruntime", None)
+    sys.modules["onnxruntime"] = onnxruntime_mock
 sys.modules["ray"] = MagicMock()
 sys.modules["ray.data"] = MagicMock()
 sys.modules["ray.train"] = MagicMock()
