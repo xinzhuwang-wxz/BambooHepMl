@@ -5,6 +5,8 @@ mlflow/
 results/
 workspaces/
 efs/
+outputs/
+!outputs/.gitkeep
 *.root
 *.h5
 *.parquet

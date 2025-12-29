@@ -10,7 +10,7 @@
 
 from .config import DataConfig
 from .dataset import HEPDataset, TransformerDataset
-from .fileio import read_files
+from .fileio import read_files, write_root
 from .preprocess import AutoStandardizer, WeightMaker
 from .sources import DataSource, DataSourceFactory, HDF5DataSource, ParquetDataSource, ROOTDataSource
 
@@ -26,4 +26,5 @@ __all__ = [
     "AutoStandardizer",
     "WeightMaker",
     "read_files",
+    "write_root",
 ]

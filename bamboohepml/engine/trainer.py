@@ -357,7 +357,9 @@ class Trainer:
                 if current_value < best_value:
                     best_value = current_value
                     best_epoch = epoch
-                    self.save_checkpoint(save_dir, "best_model.pt")
+                    # 保存最佳模型（只保存 state_dict，用于推理）
+                    self.save_checkpoint(save_dir, "best_model.pt", save_state_dict_only=True)
+                    logger.info(f"Best model saved at epoch {epoch} with {monitor}={current_value:.6f}")
 
             # 检查早停
             should_stop = False
@@ -375,9 +377,9 @@ class Trainer:
         for callback in self.callbacks:
             callback.on_train_end({"history": history})
 
-        # 保存最终模型
+        # 保存最终模型（只保存 state_dict，用于推理）
         if save_dir:
-            self.save_checkpoint(save_dir, "final_model.pt")
+            self.save_checkpoint(save_dir, "final_model.pt", save_state_dict_only=True)
 
         return {
             "history": history,
@@ -385,24 +387,30 @@ class Trainer:
             "best_value": best_value,
         }
 
-    def save_checkpoint(self, save_dir: str, filename: str = "checkpoint.pt"):
+    def save_checkpoint(self, save_dir: str, filename: str = "checkpoint.pt", save_state_dict_only: bool = False):
         """
         保存检查点。
 
         Args:
             save_dir: 保存目录
             filename: 文件名
+            save_state_dict_only: 如果为 True，只保存 model_state_dict（用于推理）；否则保存完整 checkpoint
         """
         save_path = Path(save_dir)
         save_path.mkdir(parents=True, exist_ok=True)
 
-        checkpoint = {
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "scheduler_state_dict": self.scheduler.state_dict() if self.scheduler else None,
-        }
-
-        torch.save(checkpoint, save_path / filename)
+        if save_state_dict_only:
+            # 只保存模型权重（用于推理，文件更小）
+            torch.save(self.model.state_dict(), save_path / filename)
+        else:
+            # 保存完整 checkpoint（包含优化器和调度器状态，用于恢复训练）
+            checkpoint = {
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "scheduler_state_dict": self.scheduler.state_dict() if self.scheduler else None,
+            }
+            torch.save(checkpoint, save_path / filename)
+        
         logger.info(f"Checkpoint saved to {save_path / filename}")
 
     def load_checkpoint(self, checkpoint_path: str):

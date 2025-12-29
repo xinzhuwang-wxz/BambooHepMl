@@ -1,0 +1,130 @@
+# 数据配置文件示例
+# 
+# 定义数据加载配置：标签、选择条件、权重等
+# 注意：特征定义在 features.yaml 中，不在本文件中
+
+# 需要加载的分支（从 ROOT/Parquet/HDF5 文件加载的原始字段）
+# 这些分支会被用于：
+# 1. 特征计算（在 features.yaml 中引用）
+# 2. 标签计算（如果是混合方式，需要包含标签字段）
+# 3. 选择条件
+train_load_branches:
+  - met          # event-level 变量
+  - Jet          # object-level 变量（集合）
+  # 注意：如果使用字典方式（data_train="label:path"），不需要包含 is_label 字段
+  # 因为这些字段是通过 file_magic 自动生成的，不是从 ROOT 文件读取的
+  # 如果是混合方式，需要包含标签字段，例如：
+  # - is_signal
+  # - is_background
+
+test_load_branches:
+  - met
+  - Jet
+  # 测试时通常不需要标签字段
+
+# 标签配置
+# 用于定义训练目标（分类或回归）
+# 注意：如果使用字典方式（data_train="label:path"），此配置会被自动生成，可以留空或删除
+labels:
+  # 类型：simple（分类，one-hot 编码）或 complex（回归，直接映射）
+  type: simple
+  
+  # 值：
+  # - simple 类型：列表，包含 one-hot 编码的字段名，会通过 argmax 计算类别索引
+  # - complex 类型：字典，格式为 {"_label_": "原始字段名"}
+  # 注意：字典方式会自动生成此配置，混合方式需要手动配置
+  value:
+    - is_signal
+    - is_background
+
+# 选择条件（可选）
+# 用于过滤数据，只保留满足条件的样本
+# selection: "met > 50"  # 训练时的选择条件
+# test_time_selection: "met > 50"  # 测试时的选择条件（如果未指定，使用 selection）
+
+# 权重配置（可选）
+# 用于样本重加权
+# weights:
+#   use_precomputed_weights: false  # 是否使用预计算的权重
+#   # 如果 use_precomputed_weights=true，指定权重分支
+#   # weight_branches: ["weight"]
+#   # 如果 use_precomputed_weights=false，配置重加权方法
+#   # reweight_method: "flat"  # 重加权方法
+#   # reweight_vars:  # 重加权变量
+#   #   met: [0, 50, 100, 150, 200]  # 变量名和 bin 边界
+#   # reweight_classes: ["is_signal", "is_background"]  # 类别字段
+
+# 观察者变量（可选）
+# 不用于训练，但会保存在输出中
+# observers: []
+
+# 监控变量（可选）
+# 与 observers 类似，但用于监控
+# monitor_variables: []
+
+# ========== 配置示例 ==========
+#
+# 示例 1: 多分类任务（字典方式，推荐）
+#   在 submit_baseline.sh 中配置：
+#     data_train="a:/path/to/a/*.root b:/path/to/b/*.root c:/path/to/c/*.root"
+#   系统会自动：
+#     - 生成 file_magic 配置，根据文件路径设置 is_a, is_b, is_c
+#     - 生成 labels 配置：["is_a", "is_b", "is_c"]
+#     - 自动推断 num_classes=3
+#   无需手动配置 data.yaml（脚本会自动生成）
+#
+# 示例 2: 分类任务（混合方式，simple 类型）
+#   train_load_branches:
+#     - met
+#     - Jet
+#     - is_signal
+#     - is_background
+#   labels:
+#     type: simple
+#     value: ["is_signal", "is_background"]  # one-hot 编码字段
+#   系统会自动通过 argmax 计算类别索引：argmax([is_signal, is_background])
+#
+# 示例 3: 回归任务（complex 类型）
+#   train_load_branches:
+#     - met
+#     - Jet
+#     - label  # 回归任务的标签字段
+#   labels:
+#     type: complex
+#     value: {"_label_": "label"}  # 直接映射到 _label_
+#
+# 示例 4: 使用 vector<float> 类型的数据
+#   train_load_branches:
+#     - met
+#     - Jet
+#     - my_vector  # vector<float> 类型的变量
+#     - is_signal
+#     - is_background
+#   labels:
+#     type: simple
+#     value: ["is_signal", "is_background"]
+#   然后在 features.yaml 中配置：
+#     - name: my_vector
+#       source: my_vector
+#       type: object
+#       dtype: float32
+#       padding:
+#         max_length: 100
+#
+# ========== 配置说明 ==========
+#
+# train_load_branches：
+#   - 列出训练时需要从数据文件加载的所有分支
+#   - 包括：特征源字段、标签字段、选择条件中使用的字段
+#   - 例如：如果 features.yaml 中使用 "met" 和 "Jet"，这里需要包含它们
+#   - 对于 vector<float> 类型，直接写变量名即可
+#
+# test_load_branches：
+#   - 测试/推理时需要加载的分支
+#   - 通常不包括标签字段
+#   - 但需要包括所有特征计算所需的字段
+#
+# labels：
+#   - simple 类型：用于分类任务，需要 one-hot 编码的字段列表
+#   - complex 类型：用于回归任务，直接映射字段名
+

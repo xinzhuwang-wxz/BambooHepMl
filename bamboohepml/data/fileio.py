@@ -216,3 +216,31 @@ def read_files(filelist, branches, load_range=None, show_progressbar=False, file
         raise RuntimeError(f"从文件列表 {filelist} 加载了零条记录，load_range={load_range}。")
 
     return _concat(table)
+
+
+def write_root(filepath: str, table: ak.Array, treename: str = "Events", compression: int = -1, step: int = 1048576):
+    """写入 ROOT 文件。
+
+    Args:
+        filepath: 输出文件路径
+        table: awkward Array 数据
+        treename: 树名称，默认为 "Events"
+        compression: 压缩级别，-1 表示使用 LZ4(4)
+        step: 每次写入的步长，默认为 1048576
+    """
+    import uproot
+
+    if compression == -1:
+        compression = uproot.LZ4(4)
+
+    with uproot.recreate(filepath, compression=compression) as fout:
+        # 创建树结构
+        tree = fout.mktree(treename, {k: table[k].type for k in table.fields})
+        
+        # 分块写入
+        start = 0
+        total_len = len(table[table.fields[0]])
+        while start < total_len:
+            end = min(start + step, total_len)
+            tree.extend({k: table[k][start:end] for k in table.fields})
+            start = end

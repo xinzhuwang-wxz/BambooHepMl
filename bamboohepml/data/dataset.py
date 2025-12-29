@@ -221,10 +221,27 @@ class HEPDataset(IterableDataset):
 
         # 4. 添加标签字段的原始数据源（如果存在）
         # label_value 中的字段（如 is_signal）是原始字段，需要被加载
+        # 注意：如果使用字典方式（file_magic），is_label 等变量是通过 file_magic 自动生成的，
+        # 不需要从 ROOT 文件加载，所以需要检查数据源是否有 file_magic 配置
         if self.data_config.label_value:
+            # 检查数据源是否有 file_magic（字典方式）
+            has_file_magic = (
+                hasattr(self.data_source, "config")
+                and self.data_source.config.file_magic is not None
+            )
+            
             if isinstance(self.data_config.label_value, list):
                 # simple label type: label_value is a list like ["is_signal"]
-                load_branches |= set(self.data_config.label_value)
+                # 如果使用 file_magic，这些字段是通过 file_magic 生成的，不需要加载
+                if has_file_magic:
+                    # 检查哪些字段是通过 file_magic 生成的
+                    file_magic_vars = set(self.data_source.config.file_magic.keys())
+                    label_vars = set(self.data_config.label_value)
+                    # 只加载不在 file_magic 中的字段（即真正存在于 ROOT 文件中的字段）
+                    load_branches |= label_vars - file_magic_vars
+                else:
+                    # 没有 file_magic，说明这些字段在 ROOT 文件中，需要加载
+                    load_branches |= set(self.data_config.label_value)
             elif isinstance(self.data_config.label_value, dict):
                 # complex label type: label_value is a dict
                 load_branches |= set(self.data_config.label_value.keys())

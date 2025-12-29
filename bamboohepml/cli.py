@@ -81,7 +81,7 @@ def train(
 def predict(
     pipeline_config: Annotated[str, typer.Option("-c", "--config", help="Pipeline 配置文件路径")],
     model_path: Annotated[str, typer.Option("-m", "--model", help="模型文件路径")],
-    output_path: Annotated[Optional[str], typer.Option("-o", "--output", help="输出文件路径")] = None,
+    output_path: Annotated[Optional[str], typer.Option("-o", "--output", help="输出文件路径（支持 .root, .parquet, .json）")] = None,
     batch_size: Annotated[int, typer.Option("--batch-size", help="批次大小")] = 32,
     return_probabilities: Annotated[bool, typer.Option("--probabilities/--no-probabilities", help="是否返回概率")] = False,
     scheduler: Annotated[str, typer.Option("--scheduler", help="调度器类型：local 或 slurm")] = "local",
@@ -89,7 +89,14 @@ def predict(
 ) -> None:
     """使用模型进行预测。
 
+    输出格式：
+    - .root: ROOT 文件，包含预测结果、标签和观察变量（类似 weaver）
+    - .parquet: Parquet 文件，包含预测结果、标签和观察变量
+    - .json: JSON 文件，包含预测结果（向后兼容）
+
     示例:
+        bamboohepml predict -c configs/pipeline.yaml -m outputs/model.pt -o predictions.root
+        bamboohepml predict -c configs/pipeline.yaml -m outputs/model.pt -o predictions.parquet
         bamboohepml predict -c configs/pipeline.yaml -m outputs/model.pt -o predictions.json
     """
     logger.info("=" * 80)

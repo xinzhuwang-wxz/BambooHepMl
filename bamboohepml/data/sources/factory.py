@@ -5,6 +5,7 @@
 """
 
 import os
+import glob
 
 from .base import DataSource, DataSourceConfig
 from .hdf5_source import HDF5DataSource
@@ -26,8 +27,6 @@ class DataSourceFactory:
         Returns:
             DataSource: 数据源实例
         """
-        import glob
-
         # 解析文件路径
         if isinstance(file_paths, str):
             resolved = glob.glob(file_paths)
@@ -61,21 +60,29 @@ class DataSourceFactory:
             return HDF5DataSource(config)
         else:
             raise ValueError(f"Unsupported file type: {ext}. Supported types: .root, .parquet, .h5, .hdf5")
-
+    
     @staticmethod
     def from_config(config: DataSourceConfig) -> DataSource:
-        """从配置创建数据源。
+        """
+        从配置创建数据源。
 
         Args:
-            config (DataSourceConfig): 数据源配置
+            config: 数据源配置
 
         Returns:
             DataSource: 数据源实例
         """
-        return DataSourceFactory.create(
-            config.file_paths,
-            treename=config.treename,
-            branch_magic=config.branch_magic,
-            file_magic=config.file_magic,
-            load_range=config.load_range,
-        )
+        if len(config.file_paths) == 0:
+            raise ValueError("No files in config")
+
+        first_file = config.file_paths[0]
+        ext = os.path.splitext(first_file)[1].lower()
+
+        if ext == ".root":
+            return ROOTDataSource(config)
+        elif ext == ".parquet":
+            return ParquetDataSource(config)
+        elif ext in (".h5", ".hdf5"):
+            return HDF5DataSource(config)
+        else:
+            raise ValueError(f"Unsupported file type: {ext}. Supported types: .root, .parquet, .h5, .hdf5")

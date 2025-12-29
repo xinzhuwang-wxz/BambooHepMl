@@ -96,6 +96,100 @@ class PipelineOrchestrator:
         treename = self.config.get("data", {}).get("treename", "tree")
         load_range = self.config.get("data", {}).get("load_range")
         val_split = self.config.get("data", {}).get("val_split", 0.0)
+        
+        # 解析字典格式的数据路径（类似 weaver 的 to_filelist）
+        # 如果 data_source_path 是字典格式（包含 label:path），会自动生成 file_magic 和 labels
+        import glob
+        import re
+        import os
+        
+        # 解析数据路径
+        if isinstance(data_source_path, str):
+            path_list = data_source_path.split()
+        else:
+            path_list = list(data_source_path) if data_source_path else []
+        
+        file_dict = {}
+        has_dict_format = False
+        all_files = []
+        
+        for path_item in path_list:
+            if ':' in path_item and not path_item.startswith('/') and not path_item.startswith('.'):
+                # 字典格式：label:path
+                has_dict_format = True
+                parts = path_item.split(':', 1)
+                if len(parts) == 2:
+                    label, file_path = parts
+                    files = glob.glob(file_path)
+                    if label in file_dict:
+                        file_dict[label] += files
+                    else:
+                        file_dict[label] = files
+                    all_files.extend(files)
+            else:
+                # 普通路径格式
+                files = glob.glob(path_item)
+                if '_' in file_dict:
+                    file_dict['_'] += files
+                else:
+                    file_dict['_'] = files
+                all_files.extend(files)
+        
+        all_files = sorted(list(set(all_files)))
+        
+        # 如果使用字典方式，生成 file_magic 和 labels
+        auto_file_magic = None
+        auto_labels = None
+        
+        if has_dict_format and '_' not in file_dict:
+            auto_file_magic = {}
+            auto_labels = []
+            
+            for label, files in file_dict.items():
+                label_var = f"is_{label}"
+                auto_labels.append(label_var)
+                
+                # 为每个文件生成匹配模式（使用目录名或文件名）
+                patterns = {}
+                for file_path in files:
+                    dir_name = os.path.basename(os.path.dirname(file_path))
+                    if dir_name:
+                        pattern = re.escape(dir_name)
+                        patterns[pattern] = 1.0
+                    else:
+                        file_name = os.path.basename(file_path)
+                        if file_name:
+                            pattern = re.escape(os.path.splitext(file_name)[0])
+                            patterns[pattern] = 1.0
+                
+                if not patterns:
+                    patterns[re.escape(label)] = 1.0
+                
+                auto_file_magic[label_var] = patterns
+            
+            # 如果自动生成了 labels，更新 DataConfig 和模型配置
+            if auto_labels and len(auto_labels) > 0:
+                # 更新模型配置中的 num_classes
+                model_config = self.config.get("model", {})
+                model_params = model_config.get("params", {})
+                if "num_classes" not in model_params or model_params["num_classes"] is None:
+                    model_params["num_classes"] = len(auto_labels)
+                    logger.info(f"Auto-detected num_classes={len(auto_labels)} from data paths")
+                
+                # 更新 DataConfig 的 labels 配置
+                if self.data_config and (not self.data_config.label_names or len(self.data_config.label_names) == 0):
+                    self.data_config.label_type = "simple"
+                    self.data_config.label_value = auto_labels
+                    self.data_config.label_names = ("_label_",)
+                    # 构建标签表达式
+                    label_exprs = [f"ak.to_numpy({k})" for k in auto_labels]
+                    self.data_config.register("_label_", f"np.argmax(np.stack([{','.join(label_exprs)}], axis=1), axis=1)")
+                    self.data_config.register("_labelcheck_", f"np.sum(np.stack([{','.join(label_exprs)}], axis=1), axis=1)", "train")
+                    logger.info(f"Auto-generated labels from data paths: {auto_labels}")
+        
+        # 使用解析后的文件列表
+        if all_files:
+            data_source_path = all_files
 
         # 处理验证集分割
         train_range = load_range
