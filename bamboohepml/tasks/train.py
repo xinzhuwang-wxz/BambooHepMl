@@ -346,7 +346,6 @@ class RayBackend(TrainingBackend):
 
         run_config = RunConfig(
             storage_path=str(EFS_DIR),
-            local_dir=str(EFS_DIR),
             checkpoint_config=CheckpointConfig(
                 num_to_keep=1,
                 checkpoint_score_attribute="val_loss",
