@@ -279,7 +279,13 @@ class HEPDataset(IterableDataset):
         for label_name in self.data_config.label_names:
             if label_name in table.fields:
                 labels = ak.to_numpy(table[label_name])
-                batch["_label_"] = torch.from_numpy(labels.astype(np.int64))
+                # 对于 simple 类型（分类任务），使用 int64
+                # 对于 complex 类型（回归任务），保持原始数据类型（通常是 float）
+                if self.data_config.label_type == "simple":
+                    batch["_label_"] = torch.from_numpy(labels.astype(np.int64))
+                else:
+                    # complex 类型：保持原始数据类型（通常是 float32）
+                    batch["_label_"] = torch.from_numpy(labels.astype(np.float32))
 
         # 添加观察者变量
         for obs_name in self.data_config.z_variables:

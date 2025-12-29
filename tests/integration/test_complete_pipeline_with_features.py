@@ -163,13 +163,27 @@ def _create_features_config(tmpdir: Path):
     return features_path
 
 
-def _create_data_config(tmpdir: Path):
+def _create_data_config(tmpdir: Path, task_type: str = "classification"):
     """创建 data.yaml 配置文件"""
     data_config = {
         "train_load_branches": ["met", "Jet", "label"],
         "test_load_branches": ["met", "Jet"],
-        "label": "label",
     }
+
+    # 对于分类任务，使用 simple 类型（通过 argmax 计算）
+    # 对于回归任务，使用 complex 类型，直接映射字段名
+    if task_type == "classification":
+        data_config["labels"] = {
+            "type": "simple",
+            "value": ["label"],  # 标签字段名列表，会通过 argmax 计算
+        }
+    else:  # regression
+        # 对于回归任务，使用 complex 类型，直接映射字段名
+        # complex 类型会直接使用字段值，不通过 argmax
+        data_config["labels"] = {
+            "type": "complex",
+            "value": {"_label_": "label"},  # 直接使用 label 字段作为 _label_
+        }
 
     data_path = tmpdir / "data.yaml"
     import yaml
@@ -196,7 +210,7 @@ def test_complete_pipeline_classification():
         # ========== 1. 创建配置文件 ==========
         print("\n1. [CONFIG] 创建配置文件...")
         features_config_path = _create_features_config(tmpdir)
-        data_config_path = _create_data_config(tmpdir)
+        data_config_path = _create_data_config(tmpdir, task_type="classification")
         pipeline_config_path = _create_pipeline_config(tmpdir, features_config_path, data_config_path, task_type="classification")
         print("   ✓ 配置文件创建成功")
 
@@ -310,7 +324,7 @@ def test_complete_pipeline_regression():
         # ========== 1. 创建配置文件 ==========
         print("\n1. [CONFIG] 创建配置文件...")
         features_config_path = _create_features_config(tmpdir)
-        data_config_path = _create_data_config(tmpdir)
+        data_config_path = _create_data_config(tmpdir, task_type="regression")
         pipeline_config_path = _create_pipeline_config(tmpdir, features_config_path, data_config_path, task_type="regression")
         print("   ✓ 配置文件创建成功")
 
