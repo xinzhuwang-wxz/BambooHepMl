@@ -59,15 +59,15 @@ class SupervisedParadigm(LearningParadigm):
         if labels is None:
             raise ValueError("Supervised learning requires labels. Got None.")
 
+        # 确定任务类型
+        if self.task_type:
+            task_type = self.task_type
+        else:
+            # 从 outputs 形状推断：如果是分类，outputs.shape[1] > 1
+            task_type = "classification" if outputs.shape[1] > 1 else "regression"
+
         # 如果没有提供 loss_fn，使用默认的
         if loss_fn is None:
-            # 从 task_type 或 outputs 形状推断任务类型
-            if self.task_type:
-                task_type = self.task_type
-            else:
-                # 从 outputs 形状推断：如果是分类，outputs.shape[1] > 1
-                task_type = "classification" if outputs.shape[1] > 1 else "regression"
-
             loss_fn = self.get_default_loss_fn(task_type)
 
         # 计算损失

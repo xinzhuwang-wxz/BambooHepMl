@@ -86,7 +86,8 @@ def test_train_eval_test_infer_pipeline():
         test_loader=test_loader,
         loss_fn=nn.CrossEntropyLoss(),
         optimizer=torch.optim.Adam(model.parameters(), lr=1e-3),
-        task_type="supervised",
+        task_type="classification",
+        device="cpu",
         callbacks=[
             LoggingCallback(),
             EarlyStoppingCallback(monitor="val_loss", patience=5, min_delta=0.001),

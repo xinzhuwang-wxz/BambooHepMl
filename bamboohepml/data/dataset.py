@@ -191,7 +191,7 @@ class HEPDataset(IterableDataset):
         # 2. 从 FeatureGraph 提取需要的数据源字段（始终执行，因为 FeatureGraph 是唯一特征源）
         feature_graph_fields = set()
         if self.feature_graph.expression_engine is not None:
-            for node in self.feature_graph.nodes.values():
+            for node_name, node in self.feature_graph.nodes.items():
                 feature_def = node.feature_def
                 # 从 expr 提取依赖
                 if "expr" in feature_def:
@@ -199,8 +199,9 @@ class HEPDataset(IterableDataset):
                     try:
                         deps = self.feature_graph.expression_engine.get_dependencies(expr)
                         # 只保留不在特征图中的依赖（即原始数据字段）
+                        # 或者依赖是特征本身（自引用，意味着从源读取同名字段）
                         for dep in deps:
-                            if dep not in self.feature_graph.nodes:
+                            if dep not in self.feature_graph.nodes or dep == node_name:
                                 feature_graph_fields.add(dep)
                     except Exception:
                         pass
@@ -400,7 +401,8 @@ class TransformerDataset(HEPDataset):
         output = {}
 
         # 提取输入组
-        for input_name in self.data_config.input_names:
+        input_names = self.data_config.input_names or []
+        for input_name in input_names:
             input_key = "_" + input_name
 
             if input_key not in sample:
