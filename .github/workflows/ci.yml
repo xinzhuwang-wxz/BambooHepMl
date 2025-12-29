@@ -104,6 +104,14 @@ jobs:
             --tb=short \
             --maxfail=1
 
+      - name: Run complete pipeline with features tests
+        timeout-minutes: 25
+        run: |
+          pytest tests/integration/test_complete_pipeline_with_features.py \
+            -v \
+            --tb=short \
+            --maxfail=1
+
       - name: Upload coverage (optional)
         uses: codecov/codecov-action@v3
         continue-on-error: true
