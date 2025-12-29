@@ -12,7 +12,16 @@ import torch
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Mock missing dependencies for testing environment
-sys.modules["onnx"] = MagicMock()
+# Use ModuleType to create a proper mock with __spec__ attribute
+from importlib.machinery import ModuleSpec
+from types import ModuleType
+
+if "onnx" not in sys.modules:
+    onnx_mock = ModuleType("onnx")
+    # Create a proper ModuleSpec to satisfy PyTorch _dynamo's import checks
+    onnx_mock.__spec__ = ModuleSpec("onnx", None)
+    sys.modules["onnx"] = onnx_mock
+
 sys.modules["onnxruntime"] = MagicMock()
 sys.modules["ray"] = MagicMock()
 sys.modules["ray.data"] = MagicMock()
