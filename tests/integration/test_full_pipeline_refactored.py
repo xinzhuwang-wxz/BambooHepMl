@@ -128,7 +128,10 @@ def test_full_pipeline_flow():
             metadata_path,
             feature_spec=feature_spec,
             task_type="classification",
-            model_config={"name": "mlp_classifier", "params": {"input_dim": input_dim, "num_classes": num_classes}},
+            model_config={
+                "name": "mlp_classifier",
+                "params": {"input_dim": input_dim, "hidden_dims": [32, 16], "num_classes": num_classes},
+            },
             input_dim=input_dim,
             input_key="event",
             feature_state={},
@@ -239,7 +242,10 @@ def test_metadata_driven_export():
             metadata_path,
             feature_spec=feature_spec,
             task_type="classification",
-            model_config={"name": "mlp_classifier", "params": {"input_dim": input_dim, "num_classes": num_classes}},
+            model_config={
+                "name": "mlp_classifier",
+                "params": {"input_dim": input_dim, "hidden_dims": [32, 16], "num_classes": num_classes},
+            },
             input_dim=input_dim,
             input_key="event",
             feature_state={},
@@ -292,7 +298,8 @@ def test_featuregraph_integration():
     model = get_model("mlp_classifier", input_dim=input_dim, hidden_dims=[32, 16], num_classes=2)
     model.eval()
     with torch.no_grad():
-        output = model(batch)
+        # 模型 forward 方法期望 "features" 键，需要从 batch 中提取 event 并转换
+        output = model({"features": batch["event"]})
         assert output.shape == (batch_size, 2)
 
     print("   ✓ FeatureGraph 输出格式与模型输入一致")
