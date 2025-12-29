@@ -91,7 +91,7 @@ def test_data_to_model_pipeline():
     X = torch.randn(32, 10)
 
     # 转换为模型输入格式
-    batch = {"features": X}
+    batch = {"event": X}  # 使用 "event" 作为 input_key（与架构对齐）
     print("   ✓ 数据创建成功")
 
     # 3. 测试前向传播
@@ -222,7 +222,7 @@ def test_export_predict_pipeline():
 
         def test_collate_fn(batch):
             X = torch.stack([x[0] for x in batch])
-            return {"_features": X}
+            return {"event": X}  # 使用 "event" 作为 input_key（与架构对齐）
 
         test_loader = DataLoader(test_dataset, batch_size=10, collate_fn=test_collate_fn)
         results = predictor.predict(test_loader)
@@ -304,7 +304,7 @@ def test_full_pipeline_integration():
 
         def test_collate_fn(batch):
             X = torch.stack([x[0] for x in batch])
-            return {"_features": X}
+            return {"event": X}  # 使用 "event" 作为 input_key（与架构对齐）
 
         test_loader = DataLoader(test_dataset, batch_size=5, collate_fn=test_collate_fn)
         results = predictor.predict(test_loader)
