@@ -69,13 +69,42 @@ def test_featuregraph_build_batch():
 
     # 创建模拟数据（不依赖 DataConfig）
     num_events = 10
-    table = ak.Array(
+    # 创建 Jet 对象（特征配置需要 Jet.pt, Jet.eta, Jet.phi, Jet.mass）
+    jet_pt_list = []
+    jet_eta_list = []
+    jet_phi_list = []
+    jet_mass_list = []
+    
+    for _ in range(num_events):
+        n_jets = np.random.randint(5, 15)
+        jet_pt_list.append(np.abs(np.random.randn(n_jets) * 50))
+        jet_eta_list.append(np.random.randn(n_jets) * 2)
+        jet_phi_list.append(np.random.randn(n_jets) * np.pi)
+        jet_mass_list.append(np.abs(np.random.randn(n_jets) * 10))
+    
+    jet_pt = ak.Array(jet_pt_list)
+    jet_eta = ak.Array(jet_eta_list)
+    jet_phi = ak.Array(jet_phi_list)
+    jet_mass = ak.Array(jet_mass_list)
+    
+    Jet = ak.zip(
         {
-            "met": np.random.randn(num_events),
-            "ht": np.random.randn(num_events) * 100,
-            "jet_pt": ak.Array([np.random.randn(np.random.randint(5, 15)) * 50 for _ in range(num_events)]),
+            "pt": jet_pt,
+            "eta": jet_eta,
+            "phi": jet_phi,
+            "mass": jet_mass,
         }
     )
+    
+    table = ak.Array(
+        {
+            "met": np.abs(np.random.randn(num_events) * 50),
+            "Jet": Jet,
+        }
+    )
+
+    # 先拟合特征（因为使用了 auto 归一化）
+    graph.fit(table)
 
     # 使用 FeatureGraph.build_batch() 生成模型输入
     batch = graph.build_batch(table)
@@ -114,14 +143,44 @@ def test_featuregraph_independent_of_dataconfig():
     # 创建 FeatureGraph（不依赖 DataConfig）
     graph = FeatureGraph.from_yaml(str(yaml_path), engine, enable_cache=True)
 
-    # 创建原始数据表
+    # 创建原始数据表（需要包含所有特征依赖的字段）
     num_events = 5
-    table = ak.Array(
+    # 创建 Jet 对象（特征配置需要 Jet 对象来计算 nJets, ht 等特征）
+    jet_pt_list = []
+    jet_eta_list = []
+    jet_phi_list = []
+    jet_mass_list = []
+    
+    for _ in range(num_events):
+        n_jets = np.random.randint(3, 8)
+        jet_pt_list.append(np.abs(np.random.randn(n_jets) * 50))
+        jet_eta_list.append(np.random.randn(n_jets) * 2)
+        jet_phi_list.append(np.random.randn(n_jets) * np.pi)
+        jet_mass_list.append(np.abs(np.random.randn(n_jets) * 10))
+    
+    jet_pt = ak.Array(jet_pt_list)
+    jet_eta = ak.Array(jet_eta_list)
+    jet_phi = ak.Array(jet_phi_list)
+    jet_mass = ak.Array(jet_mass_list)
+    
+    Jet = ak.zip(
         {
-            "met": np.random.randn(num_events),
-            "ht": np.random.randn(num_events) * 100,
+            "pt": jet_pt,
+            "eta": jet_eta,
+            "phi": jet_phi,
+            "mass": jet_mass,
         }
     )
+    
+    table = ak.Array(
+        {
+            "met": np.abs(np.random.randn(num_events) * 50),
+            "Jet": Jet,
+        }
+    )
+
+    # 先拟合特征（因为使用了 auto 归一化）
+    graph.fit(table)
 
     # 直接使用 FeatureGraph 生成模型输入
     batch = graph.build_batch(table)

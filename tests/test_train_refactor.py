@@ -59,7 +59,9 @@ class TestTrainTaskRefactor(unittest.TestCase):
         }
         mock_orchestrator.get_input_dim_from_spec.return_value = 10
         mock_orchestrator.setup_model.return_value = MagicMock(spec=torch.nn.Module)
-        mock_orchestrator.setup_data.return_value = MagicMock()  # dataset
+        # setup_data 应该返回 (train_dataset, val_dataset) 元组
+        mock_train_dataset = MagicMock()
+        mock_orchestrator.setup_data.return_value = (mock_train_dataset, None)  # (train_dataset, val_dataset)
 
         mock_trainer_instance = mock_trainer_cls.return_value
         mock_trainer_instance.optimizer = MagicMock()
