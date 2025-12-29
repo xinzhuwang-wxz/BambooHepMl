@@ -14,12 +14,12 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-import awkward as ak
-import numpy as np
-import torch
+import awkward as ak  # noqa: E402
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
 
-from bamboohepml.data.features.expression import ExpressionEngine
-from bamboohepml.data.features.feature_graph import FeatureGraph
+from bamboohepml.data.features.expression import ExpressionEngine  # noqa: E402
+from bamboohepml.data.features.feature_graph import FeatureGraph  # noqa: E402
 
 
 def test_featuregraph_output_spec():
@@ -74,19 +74,19 @@ def test_featuregraph_build_batch():
     jet_eta_list = []
     jet_phi_list = []
     jet_mass_list = []
-    
+
     for _ in range(num_events):
         n_jets = np.random.randint(5, 15)
         jet_pt_list.append(np.abs(np.random.randn(n_jets) * 50))
         jet_eta_list.append(np.random.randn(n_jets) * 2)
         jet_phi_list.append(np.random.randn(n_jets) * np.pi)
         jet_mass_list.append(np.abs(np.random.randn(n_jets) * 10))
-    
+
     jet_pt = ak.Array(jet_pt_list)
     jet_eta = ak.Array(jet_eta_list)
     jet_phi = ak.Array(jet_phi_list)
     jet_mass = ak.Array(jet_mass_list)
-    
+
     Jet = ak.zip(
         {
             "pt": jet_pt,
@@ -95,7 +95,7 @@ def test_featuregraph_build_batch():
             "mass": jet_mass,
         }
     )
-    
+
     table = ak.Array(
         {
             "met": np.abs(np.random.randn(num_events) * 50),
@@ -150,19 +150,19 @@ def test_featuregraph_independent_of_dataconfig():
     jet_eta_list = []
     jet_phi_list = []
     jet_mass_list = []
-    
+
     for _ in range(num_events):
         n_jets = np.random.randint(3, 8)
         jet_pt_list.append(np.abs(np.random.randn(n_jets) * 50))
         jet_eta_list.append(np.random.randn(n_jets) * 2)
         jet_phi_list.append(np.random.randn(n_jets) * np.pi)
         jet_mass_list.append(np.abs(np.random.randn(n_jets) * 10))
-    
+
     jet_pt = ak.Array(jet_pt_list)
     jet_eta = ak.Array(jet_eta_list)
     jet_phi = ak.Array(jet_phi_list)
     jet_mass = ak.Array(jet_mass_list)
-    
+
     Jet = ak.zip(
         {
             "pt": jet_pt,
@@ -171,7 +171,7 @@ def test_featuregraph_independent_of_dataconfig():
             "mass": jet_mass,
         }
     )
-    
+
     table = ak.Array(
         {
             "met": np.abs(np.random.randn(num_events) * 50),
