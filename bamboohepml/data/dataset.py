@@ -225,11 +225,8 @@ class HEPDataset(IterableDataset):
         # 不需要从 ROOT 文件加载，所以需要检查数据源是否有 file_magic 配置
         if self.data_config.label_value:
             # 检查数据源是否有 file_magic（字典方式）
-            has_file_magic = (
-                hasattr(self.data_source, "config")
-                and self.data_source.config.file_magic is not None
-            )
-            
+            has_file_magic = hasattr(self.data_source, "config") and self.data_source.config.file_magic is not None
+
             if isinstance(self.data_config.label_value, list):
                 # simple label type: label_value is a list like ["is_signal"]
                 # 如果使用 file_magic，这些字段是通过 file_magic 生成的，不需要加载

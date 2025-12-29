@@ -410,7 +410,7 @@ class Trainer:
                 "scheduler_state_dict": self.scheduler.state_dict() if self.scheduler else None,
             }
             torch.save(checkpoint, save_path / filename)
-        
+
         logger.info(f"Checkpoint saved to {save_path / filename}")
 
     def load_checkpoint(self, checkpoint_path: str):

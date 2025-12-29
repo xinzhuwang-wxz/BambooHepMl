@@ -236,7 +236,7 @@ def write_root(filepath: str, table: ak.Array, treename: str = "Events", compres
     with uproot.recreate(filepath, compression=compression) as fout:
         # 创建树结构
         tree = fout.mktree(treename, {k: table[k].type for k in table.fields})
-        
+
         # 分块写入
         start = 0
         total_len = len(table[table.fields[0]])

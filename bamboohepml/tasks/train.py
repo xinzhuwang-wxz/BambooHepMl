@@ -121,19 +121,21 @@ class LocalBackend(TrainingBackend):
         if output_dir:
             output_path = Path(output_dir)
             output_path.mkdir(parents=True, exist_ok=True)
-            
+
             # 优先使用 best_model.pt（如果存在），否则使用 final_model.pt
             best_model_path = output_path / "best_model.pt"
             final_model_path = output_path / "final_model.pt"
-            
+
             if best_model_path.exists():
                 # 复制 best_model.pt 为 model.pt（推荐使用）
                 import shutil
+
                 shutil.copy(best_model_path, output_path / "model.pt")
                 logger.info(f"Model saved to {output_path / 'model.pt'} (copied from best_model.pt)")
             elif final_model_path.exists():
                 # 如果没有 best_model.pt，使用 final_model.pt
                 import shutil
+
                 shutil.copy(final_model_path, output_path / "model.pt")
                 logger.info(f"Model saved to {output_path / 'model.pt'} (copied from final_model.pt)")
             else:

@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -120,18 +119,18 @@ def predict_task(
 
     # 5. 执行预测并收集数据
     logger.info("Running predictions...")
-    
+
     # 收集预测结果、标签和观察变量
     all_predictions = []
     all_probabilities = []
     all_labels = {}
     all_observers = {}
-    
+
     # 获取数据配置以确定标签和观察变量名称
     data_config = orchestrator.data_config
     label_names = data_config.label_names if data_config else []
     z_variables = data_config.z_variables if data_config else []
-    
+
     with torch.no_grad():
         for batch in dataloader:
             # 获取输入
@@ -140,15 +139,15 @@ def predict_task(
                 if key in ["event", "object"] or (key.startswith("_") and key != "_label_"):
                     input_key = key
                     break
-            
+
             if input_key is None:
                 raise ValueError(f"Could not find input key in batch. Available keys: {list(batch.keys())}")
-            
+
             inputs = batch[input_key].to(predictor.device)
-            
+
             # 前向传播
             outputs = predictor.model({"features": inputs})
-            
+
             # 获取预测
             if outputs.shape[1] > 1:  # 分类任务
                 predictions = torch.argmax(outputs, dim=1).cpu().numpy()
@@ -157,9 +156,9 @@ def predict_task(
                     all_probabilities.append(probs)
             else:  # 回归任务
                 predictions = outputs.squeeze().cpu().numpy()
-            
+
             all_predictions.append(predictions)
-            
+
             # 收集标签（如果存在）
             if "_label_" in batch:
                 label_data = batch["_label_"].cpu().numpy()
@@ -167,7 +166,7 @@ def predict_task(
                 if label_key not in all_labels:
                     all_labels[label_key] = []
                 all_labels[label_key].append(label_data)
-            
+
             # 收集观察变量
             for obs_name in z_variables:
                 if obs_name in batch:
@@ -177,33 +176,35 @@ def predict_task(
                         obs_data = obs_data.cpu().numpy()
                     elif isinstance(obs_data, ak.Array):
                         obs_data = ak.to_numpy(obs_data)
-                    
+
                     if obs_name not in all_observers:
                         all_observers[obs_name] = []
                     all_observers[obs_name].append(obs_data)
-    
+
     # 合并结果
     all_predictions = np.concatenate(all_predictions)
     if all_probabilities:
         all_probabilities = np.concatenate(all_probabilities)
-    
+
     for key in all_labels:
         all_labels[key] = np.concatenate(all_labels[key])
-    
+
     for key in all_observers:
-        all_observers[key] = np.concatenate(all_observers[key]) if isinstance(all_observers[key][0], np.ndarray) else ak.concatenate(all_observers[key])
-    
+        all_observers[key] = (
+            np.concatenate(all_observers[key]) if isinstance(all_observers[key][0], np.ndarray) else ak.concatenate(all_observers[key])
+        )
+
     # 6. 保存结果
     if output_path:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         ext = output_path.suffix.lower()
-        
+
         if ext == ".root":
             # 保存为 ROOT 文件（类似 weaver）
             output_dict = {}
-            
+
             # 添加预测结果
             # 判断任务类型：如果输出维度 > 1，通常是分类任务；否则是回归任务
             if len(all_predictions.shape) == 1 and (all_probabilities is not None and len(all_probabilities) > 0 and all_probabilities.shape[1] > 1):
@@ -216,16 +217,16 @@ def predict_task(
                             output_dict[f"score_{label_name}"] = all_probabilities[:, idx]
                         else:
                             # 如果没有概率，使用预测结果生成 one-hot
-                            output_dict[f"pred_{label_name}"] = (all_predictions == idx)
-                    
+                            output_dict[f"pred_{label_name}"] = all_predictions == idx
+
                     # 添加预测类别索引
                     output_dict["prediction"] = all_predictions
-                    
+
                     # 如果有标签，还原 one-hot 编码的标签
                     if len(all_labels) > 0:
                         label_key = list(all_labels.keys())[0]
                         for idx, label_name in enumerate(data_config.label_value):
-                            output_dict[label_name] = (all_labels[label_key] == idx)
+                            output_dict[label_name] = all_labels[label_key] == idx
                 else:
                     # 通用分类任务（类别名称未知）
                     output_dict["prediction"] = all_predictions
@@ -235,18 +236,18 @@ def predict_task(
             else:
                 # 回归任务：输出单个连续值
                 output_dict["prediction"] = all_predictions
-            
+
             # 添加标签
             output_dict.update(all_labels)
-            
+
             # 添加观察变量
             for key, value in all_observers.items():
                 output_dict[key] = value
-            
+
             # 写入 ROOT 文件
             write_root(str(output_path), ak.Array(output_dict), treename="Events")
             logger.info(f"Predictions saved to ROOT file: {output_path}")
-            
+
         elif ext == ".parquet":
             # 保存为 Parquet 文件
             output_dict = {"prediction": all_predictions}
@@ -255,10 +256,10 @@ def predict_task(
                     output_dict[f"score_class_{idx}"] = all_probabilities[:, idx]
             output_dict.update(all_labels)
             output_dict.update(all_observers)
-            
+
             ak.to_parquet(ak.Array(output_dict), str(output_path), compression="LZ4", compression_level=4)
             logger.info(f"Predictions saved to Parquet file: {output_path}")
-            
+
         else:
             # 默认保存为 JSON（向后兼容）
             results = []
@@ -276,13 +277,13 @@ def predict_task(
                     else:
                         result[key] = float(value[i]) if value.ndim == 1 else value[i].tolist()
                 results.append(result)
-            
+
             with open(output_path, "w") as f:
                 json.dump(results, f, indent=2)
             logger.info(f"Predictions saved to JSON file: {output_path}")
-    
+
     logger.info(f"Prediction completed! Total samples: {len(all_predictions)}")
-    
+
     # 返回结果（向后兼容）
     results = []
     for i in range(len(all_predictions)):
@@ -290,5 +291,5 @@ def predict_task(
         if all_probabilities is not None and len(all_probabilities) > 0:
             result["probabilities"] = all_probabilities[i].tolist()
         results.append(result)
-    
+
     return results

@@ -4,8 +4,8 @@
 根据文件类型自动创建相应的数据源。
 """
 
-import os
 import glob
+import os
 
 from .base import DataSource, DataSourceConfig
 from .hdf5_source import HDF5DataSource
@@ -60,7 +60,7 @@ class DataSourceFactory:
             return HDF5DataSource(config)
         else:
             raise ValueError(f"Unsupported file type: {ext}. Supported types: .root, .parquet, .h5, .hdf5")
-    
+
     @staticmethod
     def from_config(config: DataSourceConfig) -> DataSource:
         """
