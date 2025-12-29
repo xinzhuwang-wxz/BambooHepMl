@@ -91,7 +91,8 @@ def test_data_to_model_pipeline():
     X = torch.randn(32, 10)
 
     # 转换为模型输入格式
-    batch = {"event": X}  # 使用 "event" 作为 input_key（与架构对齐）
+    # 注意：模型 forward 方法期望 "features" 键，但在 pipeline 中 Trainer/Predictor 会将 input_key 转换为 "features"
+    batch = {"features": X}
     print("   ✓ 数据创建成功")
 
     # 3. 测试前向传播

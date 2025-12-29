@@ -25,13 +25,14 @@ class Predictor:
     - 多任务预测
     """
 
-    def __init__(self, model: BaseModel, device: torch.device | None = None):
+    def __init__(self, model: BaseModel, device: torch.device | None = None, input_key: str | None = None):
         """
         初始化预测器。
 
         Args:
             model: 模型实例
             device: 设备
+            input_key: 输入键名（'event', 'object' 或 '_features' 等），如果为 None 则自动检测
         """
         self.model = model
         if device is None:
@@ -39,6 +40,7 @@ class Predictor:
         self.device = device
         self.model.to(device)
         self.model.eval()
+        self.input_key = input_key
 
     def predict(
         self,
@@ -55,16 +57,27 @@ class Predictor:
         Returns:
             预测结果列表
         """
-        # 找到输入键
-        sample = next(iter(dataloader))
-        input_key = None
-        for key in sample.keys():
-            if key.startswith("_") and key != "_label_":
-                input_key = key
-                break
+        # 确定输入键
+        if self.input_key is None:
+            # 自动检测输入键（与 Trainer 逻辑一致）
+            sample = next(iter(dataloader))
+            input_key = None
+            # 优先查找 event，然后是 object
+            if "event" in sample:
+                input_key = "event"
+            elif "object" in sample:
+                input_key = "object"
+            else:
+                # 向后兼容：查找以 _ 开头的键
+                for key in sample.keys():
+                    if key.startswith("_") and key != "_label_":
+                        input_key = key
+                        break
 
-        if input_key is None:
-            raise ValueError("Could not find input key in dataloader")
+            if input_key is None:
+                raise ValueError(f"Could not find input key in dataloader. Available keys: {list(sample.keys())}")
+        else:
+            input_key = self.input_key
 
         all_predictions = []
         all_probabilities = []
