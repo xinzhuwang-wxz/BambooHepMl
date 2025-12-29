@@ -300,7 +300,9 @@ def test_complete_pipeline_classification():
         test_dataset = torch.utils.data.TensorDataset(test_batch["event"])
 
         def test_collate_fn(batch):
-            X = torch.stack(batch)
+            # TensorDataset 返回的是元组列表 [(tensor1,), (tensor2,), ...]
+            # 需要提取元组中的第一个元素
+            X = torch.stack([x[0] for x in batch])
             return {"event": X}
 
         test_loader = DataLoader(test_dataset, batch_size=10, collate_fn=test_collate_fn)
