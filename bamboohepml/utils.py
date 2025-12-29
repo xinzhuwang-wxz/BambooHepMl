@@ -102,26 +102,69 @@ def pad_array(arr: np.ndarray, dtype=np.int32) -> np.ndarray:
     return padded_arr
 
 
-def collate_fn(batch: dict[str, np.ndarray]) -> dict[str, torch.Tensor]:
+def collate_fn(batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
     """
-    将一批 numpy 数组转换为张量（带适当的填充）。
+    将一批样本合并成批次张量。
 
     Args:
-        batch: 输入批次，作为 numpy 数组字典
+        batch: 输入批次，作为样本字典列表（每个样本是一个字典）
 
     Returns:
         输出批次，作为张量字典
     """
-    # 对于 HEP 数据，可能需要不同的填充策略
-    # 这里提供一个通用版本，具体任务可以覆盖
+    if not batch:
+        return {}
+
+    # 获取所有样本的键（假设所有样本有相同的键）
+    keys = batch[0].keys()
     tensor_batch = {}
-    for key, array in batch.items():
-        if isinstance(array, np.ndarray):
-            if array.dtype == object:  # 不规则数组
-                array = pad_array(array)
-            tensor_batch[key] = torch.as_tensor(array, device=get_device())
+
+    for key in keys:
+        # 收集该键的所有值
+        values = [sample[key] for sample in batch if key in sample]
+
+        if not values:
+            continue
+
+        # 检查第一个值的类型
+        first_value = values[0]
+
+        if isinstance(first_value, torch.Tensor):
+            # 如果已经是张量，直接堆叠
+            tensor_batch[key] = torch.stack(values)
+        elif isinstance(first_value, np.ndarray):
+            # 如果是 numpy 数组，转换为张量并堆叠
+            if first_value.dtype == object:  # 不规则数组，需要填充
+                # 转换为列表进行填充
+                padded_values = [pad_array(v) if isinstance(v, np.ndarray) else v for v in values]
+                tensor_batch[key] = torch.as_tensor(np.stack(padded_values), device=get_device())
+            else:
+                tensor_batch[key] = torch.as_tensor(np.stack(values), device=get_device())
         else:
-            tensor_batch[key] = torch.as_tensor(array, device=get_device())
+            # 尝试导入 awkward（可选依赖）
+            try:
+                import awkward as ak
+
+                if isinstance(first_value, ak.Array):
+                    # 如果是 awkward array，转换为 numpy 然后堆叠
+                    numpy_values = [ak.to_numpy(v) for v in values]
+                    tensor_batch[key] = torch.as_tensor(np.stack(numpy_values), device=get_device())
+                    continue
+            except ImportError:
+                pass
+
+            # 标量值或其他类型
+            if isinstance(first_value, (int, float)):
+                # 标量值，转换为张量
+                tensor_batch[key] = torch.tensor(values, device=get_device())
+            else:
+                # 其他类型，尝试转换为张量
+                try:
+                    tensor_batch[key] = torch.as_tensor(np.array(values), device=get_device())
+                except Exception:
+                    # 如果无法转换，保持原样（可能是其他特殊类型）
+                    tensor_batch[key] = values
+
     return tensor_batch
 
 
