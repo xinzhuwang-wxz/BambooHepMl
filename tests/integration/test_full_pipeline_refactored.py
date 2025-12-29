@@ -191,8 +191,9 @@ def test_full_pipeline_flow():
         model.eval()
         model_reloaded.eval()
         with torch.no_grad():
-            output1 = model({"event": test_input})
-            output2 = model_reloaded({"event": test_input})
+            # 模型 forward 方法期望 "features" 键
+            output1 = model({"features": test_input})
+            output2 = model_reloaded({"features": test_input})
             assert torch.allclose(output1, output2, atol=1e-6)
         print("   ✓ 端到端一致性验证成功")
 

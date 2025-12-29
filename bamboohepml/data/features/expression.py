@@ -87,7 +87,8 @@ class OperatorRegistry:
 
         # 数学函数
         self.register("log", lambda x: np.log(x) if isinstance(x, np.ndarray) else ak.log(x))
-        self.register("log1p", lambda x: np.log1p(x) if isinstance(x, np.ndarray) else ak.log1p(x))
+        # log1p: awkward 没有 log1p，使用 np.log1p 处理（自动处理 ak.Array）
+        self.register("log1p", lambda x: np.log1p(x))
         self.register("exp", lambda x: np.exp(x) if isinstance(x, np.ndarray) else ak.exp(x))
 
         # sqrt: 对于 jagged array，使用 ak 的逐元素操作
