@@ -64,15 +64,19 @@ def _create_mock_data_source(num_events: int = 100):
         }
     )
 
-    # 创建标签（分类任务：0 或 1）
-    label = np.random.randint(0, 2, num_events)
+    # 创建标签（分类任务：使用 one-hot 编码，符合 simple 类型的要求）
+    # simple 类型期望 one-hot 编码，然后通过 argmax 计算类别索引
+    label_class = np.random.randint(0, 2, num_events)
+    is_signal = (label_class == 1).astype(np.float32)  # one-hot: [0, 1] 表示 signal
+    is_background = (label_class == 0).astype(np.float32)  # one-hot: [1, 0] 表示 background
 
     # 组装成 table
     table = ak.Array(
         {
             "met": met,
             "Jet": Jet,
-            "label": label,
+            "is_signal": is_signal,
+            "is_background": is_background,
         }
     )
 
@@ -165,24 +169,25 @@ def _create_features_config(tmpdir: Path):
 
 def _create_data_config(tmpdir: Path, task_type: str = "classification"):
     """创建 data.yaml 配置文件"""
-    data_config = {
-        "train_load_branches": ["met", "Jet", "label"],
-        "test_load_branches": ["met", "Jet"],
-    }
-
-    # 对于分类任务，使用 simple 类型（通过 argmax 计算）
-    # 对于回归任务，使用 complex 类型，直接映射字段名
     if task_type == "classification":
-        data_config["labels"] = {
-            "type": "simple",
-            "value": ["label"],  # 标签字段名列表，会通过 argmax 计算
+        # 分类任务：使用 simple 类型，需要 one-hot 编码的标签
+        data_config = {
+            "train_load_branches": ["met", "Jet", "is_signal", "is_background"],
+            "test_load_branches": ["met", "Jet"],
+            "labels": {
+                "type": "simple",
+                "value": ["is_signal", "is_background"],  # one-hot 编码，会通过 argmax 计算类别索引
+            },
         }
     else:  # regression
-        # 对于回归任务，使用 complex 类型，直接映射字段名
-        # complex 类型会直接使用字段值，不通过 argmax
-        data_config["labels"] = {
-            "type": "complex",
-            "value": {"_label_": "label"},  # 直接使用 label 字段作为 _label_
+        # 回归任务：使用 complex 类型，直接映射字段名
+        data_config = {
+            "train_load_branches": ["met", "Jet", "label"],
+            "test_load_branches": ["met", "Jet"],
+            "labels": {
+                "type": "complex",
+                "value": {"_label_": "label"},  # 直接使用 label 字段作为 _label_
+            },
         }
 
     data_path = tmpdir / "data.yaml"
@@ -334,7 +339,13 @@ def test_complete_pipeline_regression():
         # 创建回归任务的标签（连续值）
         num_events = 200
         mock_table = _create_mock_data_source(num_events=num_events)
-        # 修改标签为连续值
+        # 移除分类任务的 one-hot 标签，添加回归任务的连续值标签
+        # 先移除 is_signal 和 is_background
+        fields_to_remove = ["is_signal", "is_background"]
+        for field in fields_to_remove:
+            if field in mock_table.fields:
+                mock_table = ak.without_field(mock_table, field)
+        # 添加回归任务的连续值标签
         mock_table = ak.with_field(mock_table, np.abs(np.random.randn(num_events) * 10), "label")
         mock_data_source.load_branches.return_value = mock_table
         mock_data_source.get_available_branches.return_value = ["met", "Jet", "label"]
