@@ -11,20 +11,8 @@ import torch
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Mock missing dependencies for testing environment
-# Use ModuleType to create a proper mock with __spec__ attribute
-from importlib.machinery import ModuleSpec
-from types import ModuleType
-
-if "onnx" not in sys.modules:
-    onnx_mock = ModuleType("onnx")
-    onnx_mock.__spec__ = ModuleSpec("onnx", None)
-    sys.modules["onnx"] = onnx_mock
-
-if "onnxruntime" not in sys.modules:
-    onnxruntime_mock = ModuleType("onnxruntime")
-    onnxruntime_mock.__spec__ = ModuleSpec("onnxruntime", None)
-    sys.modules["onnxruntime"] = onnxruntime_mock
+# Mock missing dependencies for testing environment (only for optional dependencies like ray)
+# Note: onnx/onnxruntime are now lazy-imported, so no mock needed
 sys.modules["ray"] = MagicMock()
 sys.modules["ray.data"] = MagicMock()
 sys.modules["ray.train"] = MagicMock()

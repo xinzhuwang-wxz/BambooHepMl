@@ -10,13 +10,6 @@ from typing import Any
 
 import numpy as np
 
-try:
-    import onnxruntime as ort
-
-    ONNX_AVAILABLE = True
-except ImportError:
-    ONNX_AVAILABLE = False
-
 from ..config import logger
 
 
@@ -35,7 +28,10 @@ class ONNXPredictor:
             onnx_path: ONNX 模型文件路径
             providers: 执行提供者列表（如 ['CUDAExecutionProvider', 'CPUExecutionProvider']）
         """
-        if not ONNX_AVAILABLE:
+        # Lazy import onnxruntime to avoid torch._dynamo import errors during training
+        try:
+            import onnxruntime as ort
+        except ImportError:
             raise ImportError("onnxruntime is not installed. Install with: pip install onnxruntime")
 
         self.onnx_path = onnx_path

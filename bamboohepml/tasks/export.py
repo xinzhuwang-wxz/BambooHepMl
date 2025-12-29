@@ -11,7 +11,6 @@
 from pathlib import Path
 from typing import Any
 
-import onnx
 import torch
 
 from ..config import logger
@@ -196,6 +195,9 @@ def export_task(
 
     # 5. 验证 ONNX 模型
     logger.info("Validating ONNX model...")
+    # Lazy import onnx to avoid torch._dynamo import errors during training
+    import onnx
+
     onnx_model = onnx.load(str(output_path))
     onnx.checker.check_model(onnx_model)
     logger.info("ONNX model validation passed!")
