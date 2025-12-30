@@ -1,205 +1,37 @@
 # BambooHepMl
 
-一个面向高能物理的机器学习框架，提供配置驱动的特征工程和完整的 ML pipeline 支持。
+> 一个面向高能物理的现代机器学习框架，结合了强大的特征工程能力和完整的 ML 工程实践。
 
-## 设计理念
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- **配置驱动**：所有特征工程通过 YAML 配置完成，无需硬编码
-- **模块化设计**：清晰的模块职责，易于扩展和维护
-- **生产就绪**：完整的 ML pipeline（data → model → train → eval → export → serve）
-- **高能物理优化**：专为 HEP 数据格式和任务设计
+## ✨ 特性
 
-## 核心架构
+- 🎯 **配置驱动**：通过 YAML 配置完成所有特征工程，无需硬编码
+- 🧩 **模块化设计**：清晰的模块职责，易于扩展和维护
+- 🚀 **生产就绪**：完整的 ML pipeline（data → model → train → eval → export → serve）
+- ⚛️ **高能物理优化**：专为 HEP 数据格式和任务设计
+- 🔄 **灵活学习范式**：支持监督、半监督、无监督学习
+- 📦 **开箱即用**：集成 Docker、ONNX、FastAPI、Ray Serve 等现代工具
 
-### FeatureGraph：唯一特征源
-
-FeatureGraph 是框架的核心，作为**唯一可信的特征事实源（Single Source of Truth）**：
-
-- **Config-driven 特征定义**：所有特征在 YAML 中定义，支持表达式（expr）、依赖解析、DAG 管理
-- **自动预处理**：normalize、clip、padding、mask 完全由配置控制
-- **状态持久化**：Normalizer 参数自动拟合和保存，确保训练/验证/测试一致性
-- **输出规范**：自动生成模型输入格式（event/object/mask），与模型维度对齐
-
-### Metadata-Driven 架构
-
-训练/导出/服务完全解耦：
-
-- **训练阶段**：自动保存 `metadata.json`（包含 feature_spec、model_config、normalizer 参数等）
-- **导出阶段**：仅依赖模型权重和 metadata，无需重现训练 Dataset
-- **服务阶段**：FastAPI/ONNX 服务仅依赖模型和 metadata，完全独立于训练流程
-
-### LearningParadigm 系统
-
-统一的学习范式接口，支持：
-
-- **监督学习**：标准分类/回归任务
-- **半监督学习**：self-training、consistency regularization、pseudo-labeling
-- **无监督学习**：autoencoder、VAE、contrastive learning
-
-## 核心特性
-
-### 1. 数据与特征系统
-
-- ✅ Config-driven 特征定义（YAML）
-- ✅ Expression 表达式引擎（支持 numpy/awkward 运算）
-- ✅ 自动依赖解析和 DAG 构建
-- ✅ 完整的预处理：normalize / clip / padding / mask
-- ✅ 支持 sequence / transformer 输入
-- ✅ 零硬编码：所有特征工程在配置中完成
-
-### 2. ML Pipeline
-
-- ✅ 清晰的模块边界（config / data / model / engine / tasks / serve）
-- ✅ 完整 ML pipeline：data → feature → model → train → eval → export → serve
-- ✅ Metadata-driven 架构（训练/导出/服务解耦）
-- ✅ 支持测试、CI/CD、Docker
-- ✅ MLflow / TensorBoard 实验跟踪
-- ✅ 面向实验 + 生产
-
-### 3. 调度系统
-
-- ✅ 本地执行（local）
-- ✅ SLURM 集群提交（sbatch）
-
-### 4. 任务支持
-
-- ✅ 分类 / 回归 / 多任务
-- ✅ 监督 / 半监督 / 无监督
-- ✅ 微调（finetune）与预训练模型
-
-### 5. 工具集成
-
-- ✅ CLI 子系统（train / predict / export / inspect）
-- ✅ ONNX 导出
-- ✅ TensorBoard + MLflow 监控
-- ✅ FastAPI + Ray Serve 推理服务
-
-## 项目结构
+## 🏗️ 架构
 
 ```
 BambooHepMl/
-├── bamboohepml/          # 主包
+├── bamboohepml/          # 核心包
 │   ├── data/             # 数据与特征系统
-│   │   ├── features/     # FeatureGraph、ExpressionEngine、FeatureProcessor
-│   │   ├── sources/      # DataSource（ROOT/Parquet/HDF5）
-│   │   └── dataset.py    # HEPDataset
 │   ├── models/           # 模型定义
 │   ├── engine/           # 训练引擎
-│   │   ├── trainer.py    # Trainer
-│   │   ├── paradigms/    # LearningParadigm 系统
-│   │   └── evaluator.py  # Evaluator
 │   ├── tasks/            # 任务子系统
-│   │   ├── train.py      # train_task（LocalBackend / RayBackend）
-│   │   ├── predict.py    # predict_task
-│   │   └── export.py     # export_task
 │   ├── pipeline/         # Pipeline 编排
-│   │   ├── orchestrator.py  # PipelineOrchestrator
-│   │   └── state.py         # PipelineState
 │   ├── scheduler/        # 调度系统
 │   ├── serve/            # 服务部署
-│   ├── experiment/       # 实验跟踪
-│   └── cli.py            # CLI 入口
-├── tests/                # 测试
-│   └── integration/      # 集成测试（完整 pipeline）
+│   └── experiment/       # 实验跟踪
+├── tests/                # 测试套件
 ├── configs/              # 配置示例
-└── README.md
+└── docs/                 # 文档
 ```
 
-## 快速开始
-
-### 配置文件 Schema
-
-BambooHepMl 使用 YAML 进行全流程配置。主要配置文件包括 `pipeline.yaml` 以及其引用的 `data.yaml` 和 `features.yaml`。
-
-#### Pipeline 配置 (`pipeline.yaml`)
-
-```yaml
-data:
-  config_path: "configs/data.yaml"  # 数据集配置文件路径
-  source_path: "data/train.root"    # 数据源路径
-  treename: "Events"                # ROOT Tree 名称 (可选)
-  load_range: [0, 10000]            # 加载范围 (可选)
-  val_split: 0.1                    # 验证集比例 (可选，0-1)
-
-features:
-  config_path: "configs/features.yaml" # 特征配置文件路径
-
-model:
-  name: "ParticleTransformer"       # 模型名称 (注册的模型名)
-  params:                           # 模型参数
-    num_classes: 2
-    hidden_dim: 128
-
-train:
-  num_epochs: 20
-  batch_size: 128
-  learning_rate: 0.001
-  task_type: "classification"       # classification, regression
-  learning_paradigm: "supervised"   # supervised, semi-supervised, unsupervised
-  paradigm_config:                  # 范式特定配置
-    loss_weight: 0.5
-```
-
-#### 特征配置 (`features.yaml`)
-
-```yaml
-features:
-  event_level:                      # Event 级别特征
-    - name: "met"
-      source: "MET"                 # 原始字段名
-      dtype: "float32"
-      normalize:                    # 标准化配置
-        method: "auto"              # auto, manual, none
-
-    - name: "ht"
-      expr: "sum(Jet_pt)"           # 表达式特征 (支持 numpy/awkward 运算)
-      dtype: "float32"
-      normalize:
-        method: "manual"
-        center: 100.0
-        scale: 0.01
-
-  object_level:                     # Object 级别特征 (变长序列)
-    - name: "jet_pt"
-      source: "Jet_pt"
-      dtype: "float32"
-      normalize:
-        method: "auto"
-      clip:                         # 裁剪配置
-        min: 0.0
-        max: 500.0
-      padding:                      # Padding 配置
-        max_length: 128
-        mode: "constant"
-        value: 0.0
-```
-
-#### 数据配置 (`data.yaml`)
-
-```yaml
-train_load_branches:                # 训练时加载的分支列表
-  - "MET"
-  - "Jet_pt"
-  - "Jet_eta"
-  - "label"
-
-test_load_branches:                 # 测试时加载的分支列表
-  - "MET"
-  - "Jet_pt"
-  - "Jet_eta"
-
-label: "label"                      # 标签字段名
-weight: "weight"                    # 权重字段名 (可选)
-```
-
-### 半监督学习约定
-
-在半监督学习（`learning_paradigm: "semi-supervised"`）中，数据标签遵循以下约定：
-
-- **有标签数据**：标签为正常的类别索引（如 0, 1, 2...）或回归值（需非负）。
-- **无标签数据**：标签值应设为 `-1`。
-
-系统会自动识别无标签数据（`labels < 0`），并在计算有监督 Loss 时将其排除，同时这些数据将参与无监督 Loss（如一致性正则化、伪标签）的计算。
+## 🚀 快速开始
 
 ### 安装
 
@@ -207,42 +39,301 @@ weight: "weight"                    # 权重字段名 (可选)
 pip install -e .
 ```
 
-### 使用示例
+### 基本使用
 
 ```bash
 # 训练模型
 bamboohepml train -c configs/pipeline.yaml --experiment-name my_exp
 
 # 预测
-bamboohepml predict -c configs/pipeline.yaml -m outputs/model.pt -o predictions.json
+bamboohepml predict -c configs/pipeline.yaml -m outputs/model.pt -o predictions.root
 
 # 导出 ONNX
-bamboohepml export -m outputs/model.pt -o model.onnx --metadata-path outputs/metadata.json
+bamboohepml export -c configs/pipeline.yaml -m outputs/model.pt -o model.onnx
 
-# 启动服务
-bamboohepml serve fastapi -m outputs/model.pt --metadata-path outputs/metadata.json
-
-# SLURM 提交
-bamboohepml train -c configs/pipeline.yaml --scheduler slurm
+# 启动推理服务
+bamboohepml serve fastapi -m outputs/model.pt -c configs/pipeline.yaml
 ```
 
-## 完整 Pipeline 流程
+## 📖 配置指南
 
-BambooHepMl 实现了完整的 ML pipeline，从数据加载到模型服务的全流程：
+### Pipeline 配置 (`pipeline.yaml`)
 
-1. **Data**：从 ROOT/Parquet/HDF5 加载数据，支持 jagged array
-2. **Feature**：FeatureGraph 从 YAML 配置构建特征，自动预处理和规范化
-3. **Model**：根据配置创建模型，输入维度自动从 FeatureGraph 推断
-4. **Train**：支持本地和 Ray 分布式训练，完整的学习范式支持
-5. **Eval**：评估器自动计算任务相关的指标（accuracy、AUC、MSE 等）
-6. **Export**：导出 ONNX 模型，仅依赖模型和 metadata
-7. **Serve**：FastAPI/ONNX 服务，完全独立于训练流程
+```yaml
+data:
+  config_path: "configs/data.yaml"
+  source_path: "data/train.root"
+  treename: "Events"
+  val_split: 0.1
 
-所有阶段通过 metadata 解耦，确保生产环境的一致性。
+features:
+  config_path: "configs/features.yaml"
 
-## 文档
+model:
+  name: "ParticleTransformer"
+  params:
+    num_classes: 2
+    hidden_dim: 128
 
-使用 mkdocs 生成文档：
+train:
+  num_epochs: 20
+  batch_size: 128
+  learning_rate: 0.001
+  task_type: "classification"
+  learning_paradigm: "supervised"
+```
+
+### 特征配置 (`features.yaml`)
+
+```yaml
+features:
+  event_level:                      # Event 级别特征
+    - name: "met"
+      source: "MET"
+      dtype: "float32"
+      normalize:
+        method: "auto"
+
+    - name: "ht"
+      expr: "sum(Jet_pt)"           # 表达式特征
+      dtype: "float32"
+      normalize:
+        method: "manual"
+        center: 100.0
+        scale: 0.01
+
+  object_level:                     # Object 级别特征（变长序列）
+    - name: "jet_pt"
+      source: "Jet_pt"
+      dtype: "float32"
+      normalize:
+        method: "auto"
+      clip:
+        min: 0.0
+        max: 500.0
+      padding:
+        max_length: 128
+        mode: "constant"
+        value: 0.0
+```
+
+### 数据配置 (`data.yaml`)
+
+#### 分类任务
+
+**方式 1: 字典方式（推荐）**
+
+```bash
+# 命令行配置
+data_train="B:/path/to/bb/*.root Bbar:/path/to/bbbar/*.root C:/path/to/cc/*.root"
+```
+
+系统自动生成标签配置并推断类别数。
+
+**方式 2: 手动配置**
+
+```yaml
+train_load_branches:
+  - "MET"
+  - "Jet_pt"
+  - "is_B"
+  - "is_Bbar"
+  - "is_C"
+
+test_load_branches:
+  - "MET"
+  - "Jet_pt"
+
+labels:
+  type: "simple"
+  value:
+    - "is_B"
+    - "is_Bbar"
+    - "is_C"
+```
+
+#### 回归任务
+
+```yaml
+train_load_branches:
+  - "MET"
+  - "Jet_pt"
+  - "target_value"
+
+test_load_branches:
+  - "MET"
+  - "Jet_pt"
+
+labels:
+  type: "complex"
+  value:
+    "_label_": "target_value"
+```
+
+## 🎓 学习范式
+
+### 有监督学习（默认）
+
+```yaml
+train:
+  learning_paradigm: "supervised"
+  task_type: "classification"
+```
+
+### 半监督学习
+
+```yaml
+train:
+  learning_paradigm: "semi-supervised"
+  task_type: "classification"
+  paradigm_config:
+    strategy: "self-training"        # 或 "consistency", "pseudo-labeling"
+    unsupervised_weight: 0.1
+    confidence_threshold: 0.9
+```
+
+**标签约定**：
+- 有标签样本：`label >= 0`
+- 无标签样本：`label == -1`
+
+### 无监督学习
+
+```yaml
+train:
+  learning_paradigm: "unsupervised"
+  paradigm_config:
+    method: "autoencoder"            # 或 "vae", "contrastive"
+    reconstruction_weight: 1.0
+    kl_weight: 0.001
+```
+
+## 💾 模型保存与推理
+
+### 模型保存
+
+训练完成后会生成以下文件：
+
+| 文件 | 说明 | 用途 |
+|------|------|------|
+| `best_model.pt` | 验证损失最小的模型 | ✅ 推荐用于推理 |
+| `final_model.pt` | 最后一个 epoch 的模型 | 训练完成时的状态 |
+| `model.pt` | `best_model.pt` 的副本 | ✅ 推荐用于推理 |
+
+**保存机制**：
+- 监控指标：`val_loss`（越小越好）
+- 自动保存：当 `val_loss` 改善时自动保存最佳模型
+- 保存格式：仅保存模型权重（`state_dict`），体积小，加载快
+
+### 预测
+
+#### 分类任务输出
+
+```python
+# ROOT 文件包含：
+{
+    "is_B": [True, False, ...],      # one-hot 标签
+    "score_B": [0.95, 0.05, ...],    # 类别分数
+    "prediction": [0, 1, ...],       # 预测类别
+    "_label_": [0, 1, ...],          # 真实标签
+    "met": [50.2, 45.8, ...],        # 观察变量
+}
+```
+
+#### 回归任务输出
+
+```python
+{
+    "prediction": [1.23, 2.45, ...], # 预测值
+    "_label_": [1.25, 2.50, ...],    # 真实标签
+    "met": [50.2, 45.8, ...],        # 观察变量
+}
+```
+
+#### 使用新数据推理
+
+```bash
+# 分类模型
+bamboohepml predict \
+  -c configs/pipeline.yaml \
+  -m outputs/model.pt \
+  -o predictions.root \
+  --probabilities
+
+# 回归模型
+bamboohepml predict \
+  -c configs/pipeline.yaml \
+  -m outputs/model.pt \
+  -o predictions.root
+```
+
+**关键点**：
+- 推理时不需要标签字段
+- 只需在 `test_load_branches` 中包含特征字段
+- 标签字段为可选，如果存在会被保存到输出文件
+
+## 🐳 Docker 支持
+
+### CPU 版本
+
+```bash
+docker build -t bamboohepml:latest .
+docker run -v $(pwd)/configs:/app/configs -v $(pwd)/data:/app/data \
+    bamboohepml:latest python -m bamboohepml.cli train -c configs/pipeline.yaml
+```
+
+### GPU 版本
+
+```bash
+docker build -f docker/Dockerfile.gpu -t bamboohepml:gpu .
+docker run --gpus all -v $(pwd)/configs:/app/configs -v $(pwd)/data:/app/data \
+    bamboohepml:gpu python -m bamboohepml.cli train -c configs/pipeline.yaml
+```
+
+### 推理服务
+
+```bash
+docker run -p 8000:8000 -v $(pwd)/outputs:/app/outputs bamboohepml:latest \
+    python -m bamboohepml.serve.fastapi_server serve_fastapi \
+    --model-path outputs/model.pt --metadata-path outputs/metadata.json
+```
+
+## 🧪 开发与测试
+
+### 代码风格
+
+```bash
+make style      # 格式化代码
+make clean      # 清理临时文件
+make test       # 运行测试
+make test-cov   # 测试覆盖率
+```
+
+### Pre-commit
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+### 测试
+
+```bash
+# 运行所有新架构测试
+pytest tests/integration/test_new_architecture.py -v -s
+
+# 运行特定测试
+pytest tests/integration/test_new_architecture.py::test_only_event_features -v -s
+```
+
+**测试覆盖**：
+- ✅ Event-only 特征
+- ✅ Object-only 特征
+- ✅ Event + Object 特征组合
+- ✅ PipelineOrchestrator 自动维度推断
+- ✅ 回归任务
+- ✅ 真实 ROOT 文件测试
+
+## 📚 文档
 
 ```bash
 # 安装文档依赖
@@ -255,88 +346,13 @@ mkdocs serve
 mkdocs build
 ```
 
-## 开发
-
-### 代码风格
-
-```bash
-# 格式化代码
-make style
-
-# 清理临时文件
-make clean
-
-# 运行测试
-make test
-
-# 运行测试并生成覆盖率报告
-make test-cov
-```
-
-### Pre-commit hooks
-
-```bash
-# 安装 pre-commit hooks
-pre-commit install
-
-# 手动运行
-pre-commit run --all-files
-```
-
-### 运行完整 Pipeline 测试
-
-```bash
-# 运行完整 pipeline 集成测试
-pytest tests/integration/test_full_pipeline.py -v
-
-# 运行特定测试
-pytest tests/integration/test_full_pipeline.py::test_full_pipeline_flow -v
-```
-
-## 架构亮点
-
-### 1. 物理感知的动态特征图 (Physics-Aware Feature Graph)
-
-不仅支持静态的列映射，还能通过 ExpressionEngine 和 OperatorRegistry 在 YAML 中直接定义复杂的物理变量（如 `delta_r`、`mass`），并自动处理依赖关系和 awkward 数组的广播/切片。这是对 HEP 用户最友好的特性。
-
-- 彻底消除了特征系统的"双重性"问题
-- Config-driven，真正达到 DSL 级别
-- 自动依赖解析、DAG 管理、循环检测
-- 状态持久化（Normalizer 参数）
-- 支持复杂的物理表达式和向量化计算
-
-### 2. 无缝的分布式编排 (Seamless Distributed Orchestration)
-
-PipelineOrchestrator 屏蔽了单机与分布式环境的差异。用户只需修改配置，代码即可从本地调试平滑迁移到 Ray 集群，且数据加载（Source）、处理（Processor）和训练（Trainer）的生命周期被统一管理。
-
-- TrainingBackend 抽象（LocalBackend / RayBackend）实现透明切换
-- 统一的训练接口，无需修改训练代码
-- 支持本地开发、Ray 分布式训练、SLURM 集群提交
-
-### 3. 闭环的元数据管理 (Closed-Loop Metadata Management)
-
-修复后的系统具备了完整的元数据自动保存机制（`pipeline_state`、`feature_spec`、`normalizer_state`）。这意味着训练出的不仅仅是一个权重文件，而是一个包含了"如何处理原始数据"到"如何输出预测"全链路信息的自包含包，极大地提升了模型的可复现性和 Serving 的可靠性。
-
-- Metadata-driven 架构：训练/导出/服务完全解耦
-- 生产环境不需要重现训练时的 Dataset
-- 自动保存和加载 Normalizer 状态
-- 符合 ML 工程最佳实践
-
-### 4. LearningParadigm 系统
-
-统一的学习范式接口，扩展性强：
-
-- 半监督和无监督学习完整实现
-- 支持多种策略和方法（self-training、consistency、pseudo-labeling、autoencoder、VAE、contrastive learning）
-- 与 Trainer 解耦，逻辑清晰
-
-## 参考
-
-本框架在设计过程中参考了以下项目：
-
-- [weaver-core](https://github.com/colizz/weaver-core) - 高能物理特征工程框架
-- [Made-With-ML](https://github.com/GokuMohandas/made-with-ml) - 现代 ML 工程实践
-
-## 许可证
+## 📄 许可证
 
 MIT License
+
+## 🙏 致谢
+
+BambooHepMl 的开发受到了以下项目的启发和支持：
+
+- **[weaver-core](https://github.com/colizz/weaver-core)**
+- **[Made-With-ML](https://github.com/GokuMohandas/Made-With-ML)**

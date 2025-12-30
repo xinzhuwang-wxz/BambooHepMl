@@ -283,19 +283,17 @@ class PipelineOrchestrator:
         logger.info("Data system setup complete")
         return train_dataset, val_dataset
 
-    def setup_model(self, input_dim: int | None = None) -> Any:
+    def setup_model(self) -> Any:
         """
         设置模型系统：从配置创建模型实例。
 
-        如果未提供 input_dim，会自动从 FeatureGraph.output_spec() 推断：
-        - 优先使用 event-level 特征的维度
-        - 如果没有 event-level，使用 object-level 特征的展平维度
+        统一使用新架构（event/object 多输入），自动从 `FeatureGraph.output_spec()` 推断维度：
+        - 自动推断 `event_input_dim`（如果 FeatureGraph 有 event-level 特征）
+        - 自动推断 `object_input_dim`（如果 FeatureGraph 有 object-level 特征）
+        - `embed_dim` 需要在配置中指定，或使用默认值 64（会发出警告）
 
-        该方法会验证配置中的 input_dim（如果存在）与推断值的一致性，
+        该方法会验证配置中的维度参数（如果存在）与推断值的一致性，
         如果不一致，会使用推断值并发出警告。
-
-        Args:
-            input_dim: 模型输入维度，如果为 None 则从 FeatureGraph 推断
 
         Returns:
             创建的模型实例
@@ -312,39 +310,64 @@ class PipelineOrchestrator:
             raise ValueError("model.name must be specified in pipeline.yaml")
 
         # 获取模型参数
-        model_kwargs = model_config.get("params", {})
+        model_kwargs = model_config.get("params", {}).copy()
 
-        # 从 FeatureGraph.output_spec() 推断输入维度
-        if input_dim is None:
-            if self.feature_graph is None:
-                raise ValueError("feature_graph is required to infer input_dim. Call setup_data() first.")
+        # 从 FeatureGraph.output_spec() 推断输入维度（统一使用新架构）
+        if self.feature_graph is None:
+            raise ValueError("feature_graph is required to infer input dimensions. Call setup_data() first.")
 
-            output_spec = self.feature_graph.output_spec()
+        output_spec = self.feature_graph.output_spec()
 
-            # 优先使用 event-level 特征维度
-            if "event" in output_spec:
-                input_dim = output_spec["event"]["dim"]
-                logger.info(f"Inferred input_dim={input_dim} from event-level features (dim={output_spec['event']['dim']})")
-            elif "object" in output_spec:
-                # 如果没有 event-level，使用 object-level（需要展平）
-                object_dim = output_spec["object"]["dim"]
-                max_length = output_spec["object"]["max_length"]
-                input_dim = object_dim * max_length  # 展平后的维度
-                logger.info(f"Inferred input_dim={input_dim} from object-level features (dim={object_dim}, max_length={max_length})")
-            else:
-                raise ValueError("No features found in output_spec. Cannot infer input_dim.")
+        # 自动推断 event_input_dim 和 object_input_dim
+        has_event_input_dim = "event_input_dim" in model_kwargs
+        has_object_input_dim = "object_input_dim" in model_kwargs
 
-        # 如果提供了 input_dim，使用它；否则使用从 output_spec 推断的值
-        if input_dim is not None:
-            model_kwargs["input_dim"] = input_dim
-
-        # 验证配置一致性（如果配置中已有 input_dim）
-        if "input_dim" in model_kwargs and model_kwargs["input_dim"] != input_dim:
+        if "event" in output_spec:
+            inferred_event_dim = output_spec["event"]["dim"]
+            if not has_event_input_dim:
+                model_kwargs["event_input_dim"] = inferred_event_dim
+                logger.info(f"Auto-inferred event_input_dim={inferred_event_dim} from FeatureGraph.output_spec()")
+            elif model_kwargs["event_input_dim"] != inferred_event_dim:
+                logger.warning(
+                    f"event_input_dim mismatch: config has {model_kwargs['event_input_dim']}, "
+                    f"but FeatureGraph.output_spec() suggests {inferred_event_dim}. Using {inferred_event_dim}."
+                )
+                model_kwargs["event_input_dim"] = inferred_event_dim
+        elif has_event_input_dim:
+            # 如果配置中指定了 event_input_dim，但 output_spec 中没有 event，发出警告
             logger.warning(
-                f"input_dim mismatch: config has {model_kwargs['input_dim']}, "
-                f"but FeatureGraph output_spec suggests {input_dim}. Using {input_dim}."
+                f"event_input_dim={model_kwargs['event_input_dim']} specified in config, "
+                "but FeatureGraph.output_spec() has no event-level features. Removing event_input_dim."
             )
-            model_kwargs["input_dim"] = input_dim
+            model_kwargs.pop("event_input_dim", None)
+
+        if "object" in output_spec:
+            inferred_object_dim = output_spec["object"]["dim"]
+            if not has_object_input_dim:
+                model_kwargs["object_input_dim"] = inferred_object_dim
+                logger.info(f"Auto-inferred object_input_dim={inferred_object_dim} from FeatureGraph.output_spec()")
+            elif model_kwargs["object_input_dim"] != inferred_object_dim:
+                logger.warning(
+                    f"object_input_dim mismatch: config has {model_kwargs['object_input_dim']}, "
+                    f"but FeatureGraph.output_spec() suggests {inferred_object_dim}. Using {inferred_object_dim}."
+                )
+                model_kwargs["object_input_dim"] = inferred_object_dim
+        elif has_object_input_dim:
+            # 如果配置中指定了 object_input_dim，但 output_spec 中没有 object，发出警告
+            logger.warning(
+                f"object_input_dim={model_kwargs['object_input_dim']} specified in config, "
+                "but FeatureGraph.output_spec() has no object-level features. Removing object_input_dim."
+            )
+            model_kwargs.pop("object_input_dim", None)
+
+        # 确保至少有一个输入维度
+        if "event_input_dim" not in model_kwargs and "object_input_dim" not in model_kwargs:
+            raise ValueError("No input dimensions found. FeatureGraph.output_spec() must contain at least 'event' or 'object' features.")
+
+        # 确保 embed_dim 已提供（新架构必需）
+        if "embed_dim" not in model_kwargs:
+            logger.warning("embed_dim not specified. Using default value 64. " "Please specify embed_dim explicitly for better control.")
+            model_kwargs["embed_dim"] = 64
 
         # 创建模型
         model = get_model(model_name, **model_kwargs)
@@ -406,55 +429,6 @@ class PipelineOrchestrator:
     def get_feature_graph(self) -> FeatureGraph | None:
         """获取特征图。"""
         return self.feature_graph
-
-    def get_input_dim_from_spec(self) -> int:
-        """
-        从 FeatureGraph.output_spec() 获取输入维度。
-
-        Returns:
-            int: 输入维度
-
-        Raises:
-            ValueError: 如果 feature_graph 未设置或无法推断维度
-        """
-        if self.feature_graph is None:
-            raise ValueError("feature_graph is required. Call setup_data() first.")
-
-        output_spec = self.feature_graph.output_spec()
-
-        # 优先使用 event-level 特征维度
-        if "event" in output_spec:
-            return output_spec["event"]["dim"]
-        elif "object" in output_spec:
-            # 如果没有 event-level，使用 object-level（需要展平）
-            object_dim = output_spec["object"]["dim"]
-            max_length = output_spec["object"]["max_length"]
-            return object_dim * max_length  # 展平后的维度
-        else:
-            raise ValueError("No features found in output_spec. Cannot infer input_dim.")
-
-    def get_input_key_from_spec(self) -> str:
-        """
-        从 FeatureGraph.output_spec() 获取输入键名。
-
-        Returns:
-            str: 输入键名（"event" 或 "object"）
-
-        Raises:
-            ValueError: 如果 feature_graph 未设置或无法推断键名
-        """
-        if self.feature_graph is None:
-            raise ValueError("feature_graph is required. Call setup_data() first.")
-
-        output_spec = self.feature_graph.output_spec()
-
-        # 优先使用 event-level 特征
-        if "event" in output_spec:
-            return "event"
-        elif "object" in output_spec:
-            return "object"
-        else:
-            raise ValueError("No features found in output_spec. Cannot infer input_key.")
 
     def get_pipeline_state(self) -> PipelineState | None:
         """

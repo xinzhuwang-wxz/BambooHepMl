@@ -2,16 +2,23 @@
 pytest 配置和共享 fixtures
 """
 
+import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
-import numpy as np
-import pytest
-import torch
+# 添加项目根目录到路径（以便 conftest 可以导入项目模块）
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+os.environ["PYTHONPATH"] = str(project_root) + os.pathsep + os.environ.get("PYTHONPATH", "")
 
-from bamboohepml.engine import Predictor
-from bamboohepml.models import get_model
+import numpy as np  # noqa: E402
+import pytest  # noqa: E402
+import torch  # noqa: E402
+
+from bamboohepml.engine import Predictor  # noqa: E402
+from bamboohepml.models import get_model  # noqa: E402
 
 
 @pytest.fixture
@@ -24,8 +31,15 @@ def temp_dir():
 
 @pytest.fixture
 def sample_model():
-    """创建示例模型。"""
-    model = get_model("mlp_classifier", input_dim=10, hidden_dims=[64, 32], num_classes=2)
+    """创建示例模型（使用新架构，只有 event 特征）。"""
+    model = get_model(
+        "mlp_classifier",
+        event_input_dim=10,
+        object_input_dim=None,
+        embed_dim=64,
+        hidden_dims=[64, 32],
+        num_classes=2,
+    )
     return model
 
 

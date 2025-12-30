@@ -154,22 +154,14 @@ class LocalBackend(TrainingBackend):
                 feature_spec = feature_graph.output_spec() if feature_graph else {}
                 feature_state = feature_graph.export_state() if feature_graph else {}
 
-                # 获取模型配置和输入维度
+                # 获取模型配置（已包含 event_input_dim/object_input_dim/embed_dim）
                 model_config = orchestrator.config.get("model", {})
-                # input_dim 可以在 PipelineState 中找到，或者重新推断
-                input_dim = None
-                input_key = "event"  # 默认
-                if orchestrator.pipeline_state:
-                    input_dim = orchestrator.pipeline_state.input_dim
-                    input_key = orchestrator.pipeline_state.input_key
 
                 save_model_metadata(
                     output_path / "metadata.json",
                     feature_spec=feature_spec,
                     task_type=train_config.get("task_type", "classification"),
                     model_config=model_config,
-                    input_dim=input_dim,
-                    input_key=input_key,
                     feature_state=feature_state,
                     experiment_name=kwargs.get("experiment_name", "default"),
                 )
@@ -338,8 +330,8 @@ class RayBackend(TrainingBackend):
         # 但这里为了简单，我们重新从 config 构建
         if orchestrator:
             model_config = orchestrator.config["model"]
-            input_dim = orchestrator.get_input_dim_from_spec()
-            model_params = {**model_config.get("params", {}), "input_dim": input_dim}
+            # setup_model 已经自动推断并设置了 event_input_dim/object_input_dim
+            model_params = model_config.get("params", {}).copy()
             model_name = model_config["name"]
         else:
             # Fallback if orchestrator not provided (should not happen in current train_task)
@@ -411,21 +403,14 @@ class RayBackend(TrainingBackend):
                 feature_spec = feature_graph.output_spec() if feature_graph else {}
                 feature_state = feature_graph.export_state() if feature_graph else {}
 
-                # 获取模型配置和输入维度
+                # 获取模型配置（已包含 event_input_dim/object_input_dim/embed_dim）
                 model_config = orchestrator.config.get("model", {})
-                input_dim = None
-                input_key = "event"
-                if orchestrator.pipeline_state:
-                    input_dim = orchestrator.pipeline_state.input_dim
-                    input_key = orchestrator.pipeline_state.input_key
 
                 save_model_metadata(
                     output_dir / "metadata.json",
                     feature_spec=feature_spec,
                     task_type=train_config.get("task_type", "classification"),
                     model_config=model_config,
-                    input_dim=input_dim,
-                    input_key=input_key,
                     feature_state=feature_state,
                     experiment_name=kwargs.get("experiment_name", "default"),
                 )
@@ -511,8 +496,6 @@ def train_task(
             feature_spec=feature_spec,
             task_type=task_type,
             model_config=orchestrator.get_model_config(),
-            input_dim=orchestrator.get_pipeline_state().input_dim,
-            input_key=orchestrator.get_pipeline_state().input_key,
             feature_state=feature_state,
             experiment_name=experiment_name,
         )

@@ -57,37 +57,21 @@ class Predictor:
         Returns:
             预测结果列表
         """
-        # 确定输入键
-        if self.input_key is None:
-            # 自动检测输入键（与 Trainer 逻辑一致）
-            sample = next(iter(dataloader))
-            input_key = None
-            # 优先查找 event，然后是 object
-            if "event" in sample:
-                input_key = "event"
-            elif "object" in sample:
-                input_key = "object"
-            else:
-                # 向后兼容：查找以 _ 开头的键
-                for key in sample.keys():
-                    if key.startswith("_") and key != "_label_":
-                        input_key = key
-                        break
-
-            if input_key is None:
-                raise ValueError(f"Could not find input key in dataloader. Available keys: {list(sample.keys())}")
-        else:
-            input_key = self.input_key
-
         all_predictions = []
         all_probabilities = []
 
         with torch.no_grad():
             for batch in dataloader:
-                inputs = batch[input_key].to(self.device)
+                # 将 batch 移动到设备（直接传递完整 batch 给 model）
+                batch_on_device = {}
+                for k, v in batch.items():
+                    if isinstance(v, torch.Tensor):
+                        batch_on_device[k] = v.to(self.device)
+                    else:
+                        batch_on_device[k] = v
 
-                # 前向传播
-                outputs = self.model({"features": inputs})
+                # 前向传播（直接传递完整 batch）
+                outputs = self.model(batch_on_device)
 
                 # 获取预测
                 if outputs.shape[1] > 1:  # 分类任务

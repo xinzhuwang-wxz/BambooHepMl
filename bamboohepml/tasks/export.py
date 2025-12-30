@@ -18,33 +18,6 @@ from ..metadata import load_model_metadata
 from ..models import get_model
 
 
-def _build_dummy_input_from_spec(feature_spec: dict[str, Any], input_key: str, batch_size: int = 1) -> torch.Tensor:
-    """
-    从 feature_spec 构建虚拟输入。
-
-    Args:
-        feature_spec: 特征规范（来自 metadata）
-        input_key: 输入键名（"event" 或 "object"）
-        batch_size: 批次大小
-
-    Returns:
-        torch.Tensor: 虚拟输入张量
-    """
-    if input_key == "event":
-        if "event" not in feature_spec:
-            raise ValueError("input_key is 'event' but 'event' not found in feature_spec")
-        dim = feature_spec["event"]["dim"]
-        return torch.randn(batch_size, dim, dtype=torch.float32)
-    elif input_key == "object":
-        if "object" not in feature_spec:
-            raise ValueError("input_key is 'object' but 'object' not found in feature_spec")
-        dim = feature_spec["object"]["dim"]
-        max_length = feature_spec["object"]["max_length"]
-        return torch.randn(batch_size, max_length, dim, dtype=torch.float32)
-    else:
-        raise ValueError(f"Unknown input_key: {input_key}. Must be 'event' or 'object'.")
-
-
 def export_task(
     model_path: str,
     output_path: str,
@@ -83,7 +56,6 @@ def export_task(
 
     # 初始化变量
     feature_spec = None
-    input_key = None
 
     if not metadata_path.exists():
         if pipeline_config_path:
@@ -100,26 +72,7 @@ def export_task(
             model_name = model_config.get("name")
             model_params = model_config.get("params", {})
 
-            if input_shape is None:
-                dataset = orchestrator.setup_data()
-                sample = next(iter(dataset))
-                input_key = None
-                for key in sample.keys():
-                    if key.startswith("_") and key != "_label_":
-                        input_key = key
-                        break
-
-                if input_key is None:
-                    raise ValueError("Could not find input key in dataset")
-
-                input_value = sample[input_key]
-                if isinstance(input_value, torch.Tensor):
-                    input_shape = tuple(input_value.shape)
-                else:
-                    raise ValueError(f"Unexpected input type: {type(input_value)}")
-
-            input_dim = input_shape[-1] if len(input_shape) > 1 else input_shape[0]
-            model_params["input_dim"] = input_dim
+            # setup_model 会自动从 FeatureGraph 推断维度
         else:
             raise FileNotFoundError(
                 f"Metadata file not found at {metadata_path} and pipeline_config_path not provided. "
@@ -130,16 +83,9 @@ def export_task(
         metadata = load_model_metadata(metadata_path)
         model_config = metadata["model_config"]
         feature_spec = metadata["feature_spec"]
-        input_dim = metadata["input_dim"]
-        input_key = metadata["input_key"]
         model_name = model_config.get("name")
         model_params = model_config.get("params", {}).copy()
-        model_params["input_dim"] = input_dim
-
-        # 从 feature_spec 推断 input_shape（如果未提供）
-        if input_shape is None:
-            dummy_input = _build_dummy_input_from_spec(feature_spec, input_key, batch_size=1)
-            input_shape = tuple(dummy_input.shape[1:])  # 去掉 batch 维度
+        # model_params 已包含 event_input_dim/object_input_dim/embed_dim
 
     # 2. 加载模型
     logger.info(f"Loading model from {model_path}...")
@@ -150,16 +96,39 @@ def export_task(
     model.load_state_dict(state_dict)
     model.eval()
 
-    # 创建示例输入
-    if input_shape is None:
-        if feature_spec is not None and input_key is not None:
-            # 从 feature_spec 构建
-            dummy_input = _build_dummy_input_from_spec(feature_spec, input_key, batch_size=1)
-        else:
-            raise ValueError("Cannot create dummy input: both input_shape and (feature_spec, input_key) are None")
+    # 创建示例输入（支持多输入：event, object, mask）
+    if feature_spec is not None:
+        # 从 feature_spec 构建 dummy inputs（支持多输入）
+        dummy_inputs = []
+        input_names = []
+        dynamic_axes = {}
+
+        if "event" in feature_spec:
+            dummy_event = torch.randn(1, feature_spec["event"]["dim"], dtype=torch.float32)
+            dummy_inputs.append(dummy_event)
+            input_names.append("event")
+            dynamic_axes["event"] = {0: "batch_size"}
+
+        if "object" in feature_spec:
+            dim = feature_spec["object"]["dim"]
+            max_length = feature_spec["object"]["max_length"]
+            dummy_object = torch.randn(1, max_length, dim, dtype=torch.float32)
+            dummy_inputs.append(dummy_object)
+            input_names.append("object")
+            dynamic_axes["object"] = {0: "batch_size"}
+
+            # 如果有 mask，也添加
+            if "mask" in feature_spec:
+                dummy_mask = torch.ones(1, max_length, dtype=torch.bool)
+                dummy_inputs.append(dummy_mask)
+                input_names.append("mask")
+                dynamic_axes["mask"] = {0: "batch_size"}
+
+        # 确保至少有一个输入
+        if len(dummy_inputs) == 0:
+            raise ValueError("Cannot create dummy input: feature_spec must contain at least 'event' or 'object' features")
     else:
-        # 使用提供的 input_shape
-        dummy_input = torch.randn(1, *input_shape[1:]) if len(input_shape) > 1 else torch.randn(1, input_shape[0])
+        raise ValueError("feature_spec is required for ONNX export")
 
     # 4. 导出 ONNX
     logger.info(f"Exporting to ONNX (opset_version={opset_version})...")
@@ -168,27 +137,35 @@ def export_task(
 
     # 创建包装类，将 tensor 输入转换为字典
     class ModelWrapper(torch.nn.Module):
-        def __init__(self, model):
+        def __init__(self, model, input_names):
             super().__init__()
             self.model = model
+            self.input_names = input_names
 
-        def forward(self, features):
-            return self.model({"features": features})
+        def forward(self, *args):
+            # 构建 batch 字典（统一使用新架构）
+            batch = {}
+            for i, name in enumerate(self.input_names):
+                batch[name] = args[i]
+            return self.model(batch)
 
-    wrapped_model = ModelWrapper(model)
+    wrapped_model = ModelWrapper(model, input_names)
     wrapped_model.eval()
+
+    # 如果只有一个输入，解包；否则传递元组
+    if len(dummy_inputs) == 1:
+        export_input = dummy_inputs[0]
+    else:
+        export_input = tuple(dummy_inputs)
 
     torch.onnx.export(
         wrapped_model,
-        dummy_input,
+        export_input,
         str(output_path),
-        input_names=["features"],
+        input_names=input_names,
         output_names=["output"],
         opset_version=opset_version,
-        dynamic_axes={
-            "features": {0: "batch_size"},
-            "output": {0: "batch_size"},
-        },
+        dynamic_axes=dynamic_axes,
     )
 
     logger.info(f"ONNX model exported to {output_path}")
@@ -212,8 +189,19 @@ def export_task(
         else:
             ort_session = ort.InferenceSession(str(output_path))
 
-            # 运行推理
-            ort_inputs = {ort_session.get_inputs()[0].name: dummy_input.detach().cpu().numpy()}
+            # 运行推理（支持多输入）
+            ort_inputs = {}
+            for i, input_name in enumerate(input_names):
+                if len(dummy_inputs) == 1:
+                    input_value = dummy_inputs[0]
+                else:
+                    input_value = dummy_inputs[i]
+                ort_input_name = ort_session.get_inputs()[i].name
+                # 转换 bool mask 为 int8（ONNX 通常需要）
+                if input_name == "mask" and input_value.dtype == torch.bool:
+                    ort_inputs[ort_input_name] = input_value.detach().cpu().numpy().astype("int8")
+                else:
+                    ort_inputs[ort_input_name] = input_value.detach().cpu().numpy()
             ort_outs = ort_session.run(None, ort_inputs)
 
             logger.info(f"ONNX model test passed! Output shape: {ort_outs[0].shape}")

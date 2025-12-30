@@ -29,8 +29,6 @@ class PipelineState:
     feature_spec: dict[str, Any]
     model_config: dict[str, Any]
     task_type: str
-    input_dim: int
-    input_key: str
     pipeline_config_path: str | None = None
     feature_config_path: str | None = None
     data_config_path: str | None = None
@@ -65,39 +63,22 @@ class PipelineState:
         if self.task_type not in valid_task_types:
             errors.append(f"task_type must be one of {valid_task_types}, got {self.task_type}")
 
-        # 验证 input_dim
-        if self.input_dim <= 0:
-            errors.append(f"input_dim must be positive, got {self.input_dim}")
-
-        # 验证 input_key
-        valid_input_keys = ["event", "object"]
-        if self.input_key not in valid_input_keys:
-            errors.append(f"input_key must be one of {valid_input_keys}, got {self.input_key}")
-
-        # 验证 input_dim 与 feature_spec 的一致性
-        if "event" in self.feature_spec:
-            expected_dim = self.feature_spec["event"]["dim"]
-            if self.input_key == "event" and self.input_dim != expected_dim:
-                errors.append(f"input_dim mismatch: input_dim={self.input_dim}, " f"but feature_spec['event']['dim']={expected_dim}")
-        elif "object" in self.feature_spec:
-            if self.input_key == "object":
-                object_dim = self.feature_spec["object"]["dim"]
-                max_length = self.feature_spec["object"]["max_length"]
-                expected_dim = object_dim * max_length
-                if self.input_dim != expected_dim:
-                    errors.append(
-                        f"input_dim mismatch: input_dim={self.input_dim}, "
-                        f"but feature_spec['object'] suggests {expected_dim} "
-                        f"(dim={object_dim}, max_length={max_length})"
-                    )
-
-        # 验证 model_config 中的 input_dim（如果存在）
+        # 验证 model_config 中的 event_input_dim 和 object_input_dim
         if "params" in self.model_config:
             model_params = self.model_config["params"]
-            if "input_dim" in model_params:
-                if model_params["input_dim"] != self.input_dim:
+            if "event_input_dim" in model_params and "event" in self.feature_spec:
+                expected_dim = self.feature_spec["event"]["dim"]
+                if model_params["event_input_dim"] != expected_dim:
                     errors.append(
-                        f"input_dim mismatch: state.input_dim={self.input_dim}, " f"but model_config.params.input_dim={model_params['input_dim']}"
+                        f"event_input_dim mismatch: model_config has {model_params['event_input_dim']}, "
+                        f"but feature_spec['event']['dim']={expected_dim}"
+                    )
+            if "object_input_dim" in model_params and "object" in self.feature_spec:
+                expected_dim = self.feature_spec["object"]["dim"]
+                if model_params["object_input_dim"] != expected_dim:
+                    errors.append(
+                        f"object_input_dim mismatch: model_config has {model_params['object_input_dim']}, "
+                        f"but feature_spec['object']['dim']={expected_dim}"
                     )
 
         # 验证 task_type 与 model 的一致性
@@ -176,24 +157,14 @@ class PipelineState:
         # 获取 feature_spec
         feature_spec = feature_graph.output_spec()
 
-        # 获取 input_dim 和 input_key
-        if "event" in feature_spec:
-            input_dim = feature_spec["event"]["dim"]
-            input_key = "event"
-        elif "object" in feature_spec:
-            object_dim = feature_spec["object"]["dim"]
-            max_length = feature_spec["object"]["max_length"]
-            input_dim = object_dim * max_length
-            input_key = "object"
-        else:
-            raise ValueError("No features found in feature_spec")
+        # 验证至少有一个特征类型
+        if "event" not in feature_spec and "object" not in feature_spec:
+            raise ValueError("feature_spec must contain at least 'event' or 'object' features")
 
         return cls(
             feature_spec=feature_spec,
             model_config=model_config,
             task_type=task_type,
-            input_dim=input_dim,
-            input_key=input_key,
             pipeline_config_path=pipeline_config_path,
             feature_config_path=feature_config_path,
             data_config_path=data_config_path,
@@ -201,10 +172,12 @@ class PipelineState:
 
     def get_model_info(self) -> dict[str, Any]:
         """获取模型信息摘要。"""
+        model_params = self.model_config.get("params", {})
         return {
             "model_name": self.model_config.get("name", "unknown"),
             "task_type": self.task_type,
-            "input_dim": self.input_dim,
-            "input_key": self.input_key,
+            "event_input_dim": model_params.get("event_input_dim"),
+            "object_input_dim": model_params.get("object_input_dim"),
+            "embed_dim": model_params.get("embed_dim"),
             "feature_types": list(self.feature_spec.keys()),
         }

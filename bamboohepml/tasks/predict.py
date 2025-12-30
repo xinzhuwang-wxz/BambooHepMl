@@ -133,20 +133,16 @@ def predict_task(
 
     with torch.no_grad():
         for batch in dataloader:
-            # 获取输入
-            input_key = None
-            for key in batch.keys():
-                if key in ["event", "object"] or (key.startswith("_") and key != "_label_"):
-                    input_key = key
-                    break
+            # 将 batch 移动到设备（直接传递完整 batch 给 model）
+            batch_on_device = {}
+            for k, v in batch.items():
+                if isinstance(v, torch.Tensor):
+                    batch_on_device[k] = v.to(predictor.device)
+                else:
+                    batch_on_device[k] = v
 
-            if input_key is None:
-                raise ValueError(f"Could not find input key in batch. Available keys: {list(batch.keys())}")
-
-            inputs = batch[input_key].to(predictor.device)
-
-            # 前向传播
-            outputs = predictor.model({"features": inputs})
+            # 前向传播（直接传递完整 batch）
+            outputs = predictor.model(batch_on_device)
 
             # 获取预测
             if outputs.shape[1] > 1:  # 分类任务

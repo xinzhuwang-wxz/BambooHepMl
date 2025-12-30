@@ -22,7 +22,10 @@ from ..models import get_model
 class PredictRequest(BaseModel):
     """预测请求模型。"""
 
-    features: list[list[float]] = Field(..., description="特征向量列表")
+    features: list[list[float]] | None = Field(None, description="特征向量列表（向后兼容）")
+    event: list[list[float]] | None = Field(None, description="Event-level 特征（新格式）")
+    object: list[list[list[float]]] | None = Field(None, description="Object-level 特征（新格式）")
+    mask: list[list[bool]] | None = Field(None, description="Object mask（新格式，仅在使用 object 时需要）")
     return_probabilities: bool = Field(False, description="是否返回概率")
 
 
@@ -80,12 +83,11 @@ def create_app(
     # 全局变量存储模型和预测器
     predictor: Predictor | None = None
     model_info: dict[str, Any] = {}
-    input_key: str | None = None
 
     @app.on_event("startup")
     async def startup_event():
         """启动时加载模型。"""
-        nonlocal predictor, model_info, input_key
+        nonlocal predictor, model_info
         try:
             from pathlib import Path
 
@@ -97,16 +99,6 @@ def create_app(
                     predictor = ONNXPredictor(onnx_path)
                     logger.info(f"ONNX model loaded from {onnx_path}")
                     model_info = {"model_type": "onnx", "onnx_path": onnx_path}
-
-                    # 尝试加载 metadata 获取 input_key
-                    resolved_metadata_path = metadata_path
-                    if resolved_metadata_path is None and model_path:
-                        resolved_metadata_path = str(Path(model_path).parent / "metadata.json")
-                    if resolved_metadata_path and Path(resolved_metadata_path).exists():
-                        metadata = load_model_metadata(resolved_metadata_path)
-                        input_key = metadata.get("input_key", "event")
-                    else:
-                        input_key = "event"  # 默认
                     return
                 except Exception as e:
                     logger.warning(f"Failed to load ONNX model: {e}, falling back to PyTorch")
@@ -130,48 +122,18 @@ def create_app(
                 # 从 metadata 加载
                 metadata = load_model_metadata(resolved_metadata_path)
                 model_config = metadata["model_config"]
-                input_dim = metadata["input_dim"]
-                input_key = metadata["input_key"]
                 model_name = model_config.get("name")
                 model_params = model_config.get("params", {}).copy()
-                model_params["input_dim"] = input_dim
+                # model_params 已包含 event_input_dim/object_input_dim/embed_dim
             elif pipeline_config_path:
-                # 向后兼容：从 pipeline 配置加载（已废弃）
-                logger.warning(f"Metadata file not found at {resolved_metadata_path}. " "Falling back to pipeline_config_path (deprecated).")
+                # 从 pipeline 配置加载
                 from ..pipeline import PipelineOrchestrator
 
                 orchestrator = PipelineOrchestrator(pipeline_config_path)
                 model_config = orchestrator.get_model_config()
                 model_name = model_config.get("name")
                 model_params = model_config.get("params", {})
-
-                # 从数据推断输入维度
-                dataset = orchestrator.setup_data()
-                sample = next(iter(dataset))
-                input_key = None
-                for key in sample.keys():
-                    if key.startswith("_") and key != "_label_":
-                        input_key = key
-                        break
-
-                if input_key is None:
-                    raise ValueError("Could not find input key in dataset")
-
-                input_value = sample[input_key]
-                if isinstance(input_value, torch.Tensor):
-                    if len(input_value.shape) == 1:
-                        input_dim = input_value.shape[0]
-                    elif len(input_value.shape) == 2:
-                        input_dim = input_value.shape[1]
-                    else:
-                        input_dim = int(torch.prod(torch.tensor(input_value.shape)))
-                else:
-                    raise ValueError(f"Unexpected input type: {type(input_value)}")
-
-                model_params["input_dim"] = input_dim
-            elif model_name and model_params:
-                # 向后兼容：直接使用提供的参数
-                input_key = "event"  # 默认
+                # setup_model 会自动从 FeatureGraph 推断维度，但这里我们只需要参数
             else:
                 raise ValueError(
                     "Must provide metadata_path (or metadata.json in model directory), "
@@ -193,7 +155,6 @@ def create_app(
                 "model_type": "pytorch",
                 "model_name": model_name,
                 "model_params": model_params,
-                "input_key": input_key,
             }
             logger.info("Model loaded successfully")
         except Exception as e:
@@ -227,25 +188,43 @@ def create_app(
             raise HTTPException(status_code=503, detail="Model not loaded")
 
         try:
-            # 转换为 torch.Tensor
-            features_tensor = torch.tensor(request.features, dtype=torch.float32)
+            # 构建 batch 字典（支持新格式和向后兼容）
+            batch_dict = {}
 
-            # 创建数据集（使用正确的 input_key）
+            # 优先使用新格式（event/object）
+            if request.event is not None:
+                batch_dict["event"] = torch.tensor(request.event, dtype=torch.float32)
+            if request.object is not None:
+                batch_dict["object"] = torch.tensor(request.object, dtype=torch.float32)
+                if request.mask is not None:
+                    batch_dict["mask"] = torch.tensor(request.mask, dtype=torch.bool)
+
+            # 向后兼容：如果没有新格式，使用旧的 features
+            if not batch_dict and request.features is not None:
+                batch_dict["features"] = torch.tensor(request.features, dtype=torch.float32)
+
+            if not batch_dict:
+                raise ValueError("Must provide either (event/object) or features")
+
+            # 创建数据集
             from torch.utils.data import DataLoader
 
             from ..utils import DictDataset
 
-            # 使用 metadata 中的 input_key（默认为 "event"）
-            actual_input_key = input_key or "event"
-            dataset = DictDataset([{actual_input_key: features_tensor}])
-            dataloader = DataLoader(dataset, batch_size=len(request.features))
+            dataset = DictDataset([batch_dict])
+            batch_size = (
+                len(request.event)
+                if request.event is not None
+                else len(request.object) if request.object is not None else len(request.features) if request.features is not None else 1
+            )
+            dataloader = DataLoader(dataset, batch_size=batch_size)
 
             # 预测
             results = predictor.predict(dataloader, return_probabilities=request.return_probabilities)
 
             predictions = [r["prediction"] for r in results]
             probabilities = None
-            if request.return_probabilities and "probabilities" in results[0]:
+            if request.return_probabilities and results and "probabilities" in results[0]:
                 probabilities = [r["probabilities"] for r in results]
 
             return PredictResponse(predictions=predictions, probabilities=probabilities)
@@ -260,33 +239,47 @@ def create_app(
             raise HTTPException(status_code=503, detail="Model not loaded")
 
         try:
-            # 提取所有样本的特征
-            all_features = []
-            for sample in request.samples:
-                if "features" in sample:
-                    all_features.append(sample["features"])
-                else:
-                    raise ValueError("Each sample must have 'features' key")
+            # 收集所有样本（支持新格式和向后兼容）
+            batch_dict = {}
 
-            # 转换为 torch.Tensor
-            features_tensor = torch.tensor(all_features, dtype=torch.float32)
+            # 检查第一个样本来确定格式
+            if not request.samples:
+                raise ValueError("No samples provided")
 
-            # 创建数据集（使用正确的 input_key）
+            first_sample = request.samples[0]
+
+            # 优先使用新格式
+            if "event" in first_sample:
+                all_event = [sample.get("event") for sample in request.samples]
+                batch_dict["event"] = torch.tensor(all_event, dtype=torch.float32)
+            if "object" in first_sample:
+                all_object = [sample.get("object") for sample in request.samples]
+                batch_dict["object"] = torch.tensor(all_object, dtype=torch.float32)
+                if "mask" in first_sample:
+                    all_mask = [sample.get("mask") for sample in request.samples]
+                    batch_dict["mask"] = torch.tensor(all_mask, dtype=torch.bool)
+
+            # 向后兼容：如果没有新格式，使用旧的 features
+            if not batch_dict:
+                if "features" not in first_sample:
+                    raise ValueError("Each sample must have 'features', 'event', or 'object' key")
+                all_features = [sample["features"] for sample in request.samples]
+                batch_dict["features"] = torch.tensor(all_features, dtype=torch.float32)
+
+            # 创建数据集
             from torch.utils.data import DataLoader
 
             from ..utils import DictDataset
 
-            # 使用 metadata 中的 input_key（默认为 "event"）
-            actual_input_key = input_key or "event"
-            dataset = DictDataset([{actual_input_key: features_tensor}])
-            dataloader = DataLoader(dataset, batch_size=len(all_features))
+            dataset = DictDataset([batch_dict])
+            dataloader = DataLoader(dataset, batch_size=len(request.samples))
 
             # 预测
             results = predictor.predict(dataloader, return_probabilities=request.return_probabilities)
 
             predictions = [r["prediction"] for r in results]
             probabilities = None
-            if request.return_probabilities and "probabilities" in results[0]:
+            if request.return_probabilities and results and "probabilities" in results[0]:
                 probabilities = [r["probabilities"] for r in results]
 
             return PredictResponse(predictions=predictions, probabilities=probabilities)

@@ -65,35 +65,22 @@ class Evaluator:
         total_loss = 0.0
         num_batches = 0
 
-        # 确定输入键
-        if self.input_key is None:
-            # 自动检测输入键（与 Trainer 逻辑一致）
-            sample = next(iter(dataloader))
-            input_key = None
-            # 优先查找 event，然后是 object
-            if "event" in sample:
-                input_key = "event"
-            elif "object" in sample:
-                input_key = "object"
-            else:
-                # 向后兼容：查找以 _ 开头的键
-                for key in sample.keys():
-                    if key.startswith("_") and key != "_label_":
-                        input_key = key
-                        break
-
-            if input_key is None:
-                raise ValueError(f"Could not find input key in dataloader. Available keys: {list(sample.keys())}")
-        else:
-            input_key = self.input_key
-
         with torch.no_grad():
             for batch in dataloader:
-                inputs = batch[input_key].to(device)
-                labels = batch["_label_"].to(device)
+                # 将 batch 移动到设备（直接传递完整 batch 给 model）
+                batch_on_device = {}
+                for k, v in batch.items():
+                    if isinstance(v, torch.Tensor):
+                        batch_on_device[k] = v.to(device)
+                    else:
+                        batch_on_device[k] = v
 
-                # 前向传播
-                outputs = model({"features": inputs})
+                labels = batch_on_device.get("_label_")
+                if labels is None:
+                    raise ValueError("Batch must contain '_label_' key for evaluation")
+
+                # 前向传播（直接传递完整 batch）
+                outputs = model(batch_on_device)
 
                 # 计算损失（如果提供）
                 if loss_fn is not None:

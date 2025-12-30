@@ -215,23 +215,43 @@ class Trainer:
             if not isinstance(batch, dict):
                 raise ValueError(f"Batch must be a dict, got {type(batch)}")
 
-            # 使用 paradigm 准备数据（如果需要特殊处理）
-            inputs, labels = self.paradigm.prepare_batch(batch)
-            inputs = inputs.to(self.device)
-            if labels is not None:
-                labels = labels.to(self.device)
+            # 将 batch 移动到设备（直接传递完整 batch 给 model）
+            batch_on_device = {}
+            for k, v in batch.items():
+                if isinstance(v, torch.Tensor):
+                    batch_on_device[k] = v.to(self.device)
+                else:
+                    batch_on_device[k] = v
 
-            # 前向传播
+            # 提取 labels（用于损失计算）
+            labels = batch_on_device.get("_label_")
+
+            # 前向传播（直接传递完整 batch 给模型）
+            # 注意：模型会收到包含 event、object、mask 等所有键的完整字典
+            # 如果同时有 event 和 object，模型会正确处理两者（融合）
             self.optimizer.zero_grad()
-            outputs = self.model({"features": inputs})
+            outputs = self.model(batch_on_device)
 
             # 使用 paradigm 计算损失
+            # 注意：为了兼容 compute_loss 接口，我们提取 inputs
+            # 但模型已经使用了完整 batch（见上面的 model(batch_on_device)）
+            # SupervisedParadigm 不使用 inputs，只使用 outputs 和 labels
+            # SemiSupervisedParadigm/UnsupervisedParadigm 使用 _build_batch_from_inputs 重建 batch
+            inputs = None
+            if "event" in batch_on_device:
+                inputs = batch_on_device["event"]
+            elif "object" in batch_on_device:
+                inputs = batch_on_device["object"]
+            elif "features" in batch_on_device:
+                inputs = batch_on_device["features"]
+
             loss = self.paradigm.compute_loss(
                 model=self.model,
                 inputs=inputs,
                 labels=labels,
                 outputs=outputs,
                 loss_fn=self.loss_fn,
+                batch=batch_on_device,  # 传递原始 batch 以便范式构建正确的输入格式
             )
 
             # 反向传播

@@ -28,10 +28,11 @@ virtual_env = "venv"
 
 [tool.flake8]
 exclude = "venv,.git,__pycache__,build,dist,site"
-ignore = ["E501", "W503", "E226"]
+ignore = ["E501", "W503", "E226", "F541"]
 # E501: Line too long
 # W503: Line break occurred before binary operator
 # E226: Missing white space around arithmetic operator
+# F541: f-string is missing placeholders (允许为了代码风格一致性使用 f-string)
 max-line-length = 150
 
 [tool.pyupgrade]

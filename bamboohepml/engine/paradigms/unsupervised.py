@@ -55,6 +55,7 @@ class UnsupervisedParadigm(LearningParadigm):
         labels: torch.Tensor | None,
         outputs: torch.Tensor,
         loss_fn: nn.Module | None = None,
+        batch: dict[str, Any] | None = None,
     ) -> torch.Tensor:
         """
         计算无监督损失。
@@ -145,7 +146,7 @@ class UnsupervisedParadigm(LearningParadigm):
         total_loss = reconstruction_loss + self.kl_weight * kl_loss
         return total_loss
 
-    def _contrastive_loss(self, model: nn.Module, inputs: torch.Tensor, outputs: torch.Tensor) -> torch.Tensor:
+    def _contrastive_loss(self, model: nn.Module, inputs: torch.Tensor, outputs: torch.Tensor, batch: dict[str, Any] | None = None) -> torch.Tensor:
         """
         对比学习损失（SimCLR 风格）。
 
@@ -153,6 +154,7 @@ class UnsupervisedParadigm(LearningParadigm):
             model: 模型
             inputs: 原始输入
             outputs: 模型输出（特征表示）
+            batch: 原始 batch 字典（用于推断输入键）
 
         Returns:
             torch.Tensor: 对比损失
@@ -160,7 +162,9 @@ class UnsupervisedParadigm(LearningParadigm):
         # 生成增强版本（添加噪声）
         noise = torch.randn_like(inputs) * 0.1
         augmented_inputs = inputs + noise
-        augmented_outputs = model({"features": augmented_inputs})
+        # 构建 batch 字典（使用与原始输入相同的键）
+        augmented_batch = self._build_batch_from_inputs(augmented_inputs, batch)
+        augmented_outputs = model(augmented_batch)
 
         # 归一化特征
         outputs_norm = F.normalize(outputs, p=2, dim=1)

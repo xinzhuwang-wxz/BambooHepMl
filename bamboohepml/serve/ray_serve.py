@@ -71,31 +71,8 @@ class RayServeDeployment:
                 model_name = model_config.get("name")
                 model_params = model_config.get("params", {})
 
-                # 从数据推断输入维度
-                dataset = orchestrator.setup_data()
-                sample = next(iter(dataset))
-                input_key = None
-                for key in sample.keys():
-                    if key.startswith("_") and key != "_label_":
-                        input_key = key
-                        break
-
-                if input_key is None:
-                    raise ValueError("Could not find input key in dataset")
-
-                input_value = sample[input_key]
-                if isinstance(input_value, torch.Tensor):
-                    if len(input_value.shape) == 1:
-                        input_dim = input_value.shape[0]
-                    elif len(input_value.shape) == 2:
-                        input_dim = input_value.shape[1]
-                    else:
-                        input_dim = int(torch.prod(torch.tensor(input_value.shape)))
-                else:
-                    raise ValueError(f"Unexpected input type: {type(input_value)}")
-
-                model_params["input_dim"] = input_dim
-                model = orchestrator.setup_model(input_dim=input_dim)
+                # setup_model 会自动从 FeatureGraph 推断维度
+                model = orchestrator.setup_model()
             elif model_name and model_params:
                 # 直接使用提供的参数
                 model = get_model(model_name, **model_params)
@@ -136,22 +113,34 @@ class RayServeDeployment:
     async def _predict(self, request: Request) -> dict[str, Any]:
         """预测。"""
         data = await request.json()
-        features = data.get("features", [])
 
-        if not features:
-            return {"error": "No features provided"}
+        # 构建 batch 字典（支持新格式和向后兼容）
+        batch_dict = {}
+
+        # 优先使用新格式（event/object）
+        if "event" in data:
+            batch_dict["event"] = torch.tensor(data["event"], dtype=torch.float32)
+        if "object" in data:
+            batch_dict["object"] = torch.tensor(data["object"], dtype=torch.float32)
+            if "mask" in data:
+                batch_dict["mask"] = torch.tensor(data["mask"], dtype=torch.bool)
+
+        # 向后兼容：如果没有新格式，使用旧的 features
+        if not batch_dict:
+            features = data.get("features", [])
+            if not features:
+                return {"error": "No features provided. Must provide 'features', 'event', or 'object'"}
+            batch_dict["features"] = torch.tensor(features, dtype=torch.float32)
 
         try:
-            # 转换为 torch.Tensor
-            features_tensor = torch.tensor(features, dtype=torch.float32)
-
             # 创建数据集
             from torch.utils.data import DataLoader
 
             from ..utils import DictDataset
 
-            dataset = DictDataset([{"_features": features_tensor}])
-            dataloader = DataLoader(dataset, batch_size=len(features))
+            dataset = DictDataset([batch_dict])
+            batch_size = len(batch_dict.get("event", batch_dict.get("object", batch_dict.get("features", [[]]))))
+            dataloader = DataLoader(dataset, batch_size=batch_size)
 
             # 预测
             results = self.predictor.predict(dataloader, return_probabilities=False)

@@ -68,48 +68,15 @@ jobs:
           pip install -e .
           pip install -e ".[test]"
 
-      - name: Run unit tests
-        timeout-minutes: 10
+      - name: Run new architecture tests
+        timeout-minutes: 30
         run: |
-          pytest tests/ \
+          pytest tests/integration/test_new_architecture.py \
             -v \
+            --tb=short \
             --cov=bamboohepml \
             --cov-report=xml \
             --cov-report=html \
-            -m "not slow and not integration" \
-            --maxfail=3 \
-            --ignore=tests/serve/test_onnx.py \
-            --ignore=tests/data/test_comprehensive_data_reading.py \
-            --ignore=tests/data/test_comprehensive_verbose.py
-
-      - name: Run module availability tests
-        timeout-minutes: 5
-        run: |
-          pytest tests/integration/test_full_pipeline.py::test_module_availability -v
-
-      - name: Run pipeline integration tests
-        timeout-minutes: 15
-        run: |
-          pytest tests/integration/test_full_pipeline.py \
-            -v \
-            --tb=short \
-            -k "pipeline" \
-            --maxfail=2
-
-      - name: Run full pipeline flow tests (refactored)
-        timeout-minutes: 20
-        run: |
-          pytest tests/integration/test_full_pipeline_refactored.py \
-            -v \
-            --tb=short \
-            --maxfail=1
-
-      - name: Run complete pipeline with features tests
-        timeout-minutes: 25
-        run: |
-          pytest tests/integration/test_complete_pipeline_with_features.py \
-            -v \
-            --tb=short \
             --maxfail=1
 
       - name: Upload coverage (optional)

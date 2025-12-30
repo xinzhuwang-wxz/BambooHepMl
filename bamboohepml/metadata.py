@@ -5,9 +5,7 @@
 模型元数据包含：
 - feature_spec: 特征规范（来自 FeatureGraph.output_spec()）
 - task_type: 任务类型
-- model_config: 模型配置
-- input_dim: 输入维度
-- input_key: 输入键名
+- model_config: 模型配置（包含 event_input_dim/object_input_dim/embed_dim 等）
 """
 
 from __future__ import annotations
@@ -26,8 +24,6 @@ def save_model_metadata(
     feature_spec: dict[str, Any],
     task_type: str,
     model_config: dict[str, Any],
-    input_dim: int,
-    input_key: str,
     **kwargs,
 ) -> None:
     """
@@ -37,10 +33,8 @@ def save_model_metadata(
         metadata_path: 元数据文件路径
         feature_spec: 特征规范（来自 FeatureGraph.output_spec()）
         task_type: 任务类型（classification/regression）
-        model_config: 模型配置
-        input_dim: 输入维度
-        input_key: 输入键名（event/object）
-        **kwargs: 其他元数据（如 num_classes, output_dir 等）
+        model_config: 模型配置（应包含 event_input_dim/object_input_dim/embed_dim）
+        **kwargs: 其他元数据（如 feature_state, experiment_name 等）
     """
     metadata_path = Path(metadata_path)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,8 +43,6 @@ def save_model_metadata(
         "feature_spec": feature_spec,
         "task_type": task_type,
         "model_config": model_config,
-        "input_dim": input_dim,
-        "input_key": input_key,
         **kwargs,  # 其他字段
     }
 

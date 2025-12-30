@@ -15,7 +15,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ...config import logger
 from .base import LearningParadigm
 
 
@@ -65,6 +64,7 @@ class SemiSupervisedParadigm(LearningParadigm):
         labels: torch.Tensor | None,
         outputs: torch.Tensor,
         loss_fn: nn.Module | None = None,
+        batch: dict[str, Any] | None = None,
     ) -> torch.Tensor:
         """
         计算半监督损失。
@@ -88,13 +88,11 @@ class SemiSupervisedParadigm(LearningParadigm):
         # 这是标准的半监督学习约定（与 scikit-learn 的 LabelSpreading 等一致）
         if labels is not None:
             labeled_mask = labels >= 0  # 有标签样本：label >= 0，无标签样本：label == -1
-            labeled_inputs = inputs[labeled_mask]
             labeled_labels = labels[labeled_mask]
             labeled_outputs = outputs[labeled_mask]
             unlabeled_inputs = inputs[~labeled_mask]
         else:
             # 如果没有提供 labels，所有数据都是无标签的
-            labeled_inputs = None
             labeled_labels = None
             labeled_outputs = None
             unlabeled_inputs = inputs
@@ -110,13 +108,15 @@ class SemiSupervisedParadigm(LearningParadigm):
 
         # 无监督损失（根据策略）
         if unlabeled_inputs is not None and len(unlabeled_inputs) > 0:
-            unlabeled_outputs = model({"features": unlabeled_inputs})
+            # 构建 batch 字典（使用与原始 batch 相同的输入键）
+            unlabeled_batch = self._build_batch_from_inputs(unlabeled_inputs, batch)
+            unlabeled_outputs = model(unlabeled_batch)
 
             if self.strategy == "self-training":
                 unsupervised_loss = self._self_training_loss(unlabeled_outputs, loss_fn)
             elif self.strategy == "consistency":
                 # 对输入添加噪声，要求输出一致
-                unsupervised_loss = self._consistency_loss(model, unlabeled_inputs, unlabeled_outputs)
+                unsupervised_loss = self._consistency_loss(model, unlabeled_inputs, unlabeled_outputs, batch)
             elif self.strategy == "pseudo-labeling":
                 unsupervised_loss = self._pseudo_labeling_loss(unlabeled_outputs, loss_fn)
             else:
@@ -150,7 +150,7 @@ class SemiSupervisedParadigm(LearningParadigm):
 
         return loss
 
-    def _consistency_loss(self, model: nn.Module, inputs: torch.Tensor, outputs: torch.Tensor) -> torch.Tensor:
+    def _consistency_loss(self, model: nn.Module, inputs: torch.Tensor, outputs: torch.Tensor, batch: dict[str, Any] | None = None) -> torch.Tensor:
         """
         Consistency regularization 策略：对输入添加噪声，要求输出一致。
 
@@ -158,6 +158,7 @@ class SemiSupervisedParadigm(LearningParadigm):
             model: 模型
             inputs: 输入张量
             outputs: 原始输出
+            batch: 原始 batch 字典（用于推断输入键）
 
         Returns:
             torch.Tensor: 一致性损失
@@ -165,7 +166,9 @@ class SemiSupervisedParadigm(LearningParadigm):
         # 添加噪声（高斯噪声）
         noise = torch.randn_like(inputs) * 0.1
         noisy_inputs = inputs + noise
-        noisy_outputs = model({"features": noisy_inputs})
+        # 构建 batch 字典（使用与原始输入相同的键）
+        noisy_batch = self._build_batch_from_inputs(noisy_inputs, batch)
+        noisy_outputs = model(noisy_batch)
 
         # 计算输出的一致性损失（MSE）
         if self.task_type == "classification":

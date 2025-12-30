@@ -11,9 +11,6 @@ from typing import Any
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
-
-from ...config import logger
 
 
 class LearningParadigm(ABC):
@@ -43,6 +40,7 @@ class LearningParadigm(ABC):
         labels: torch.Tensor | None,
         outputs: torch.Tensor,
         loss_fn: nn.Module | None = None,
+        batch: dict[str, Any] | None = None,
     ) -> torch.Tensor:
         """
         计算损失。
@@ -85,6 +83,42 @@ class LearningParadigm(ABC):
         labels = batch.get("_label_", None)
 
         return inputs, labels
+
+    def _build_batch_from_inputs(self, inputs: torch.Tensor, batch: dict[str, Any] | None = None) -> dict[str, torch.Tensor]:
+        """
+        从 inputs tensor 构建 batch 字典（用于模型前向传播）。
+
+        如果提供了原始 batch，会尝试推断输入键（event/object）并使用相同的键。
+        否则，会尝试从模型配置推断。
+
+        Args:
+            inputs: 输入张量
+            batch: 原始 batch 字典（可选，用于推断输入键）
+
+        Returns:
+            dict: 包含输入键和值的 batch 字典
+        """
+        if batch is not None:
+            # 从原始 batch 推断输入键
+            input_key = None
+            for key in ["event", "object"]:
+                if key in batch:
+                    input_key = key
+                    break
+            if input_key:
+                result = {input_key: inputs}
+                # 如果有 mask，也需要传递
+                if "mask" in batch:
+                    result["mask"] = batch["mask"]
+                return result
+
+        # Fallback: 尝试从 inputs 形状推断（event 是 2D，object 是 3D）
+        if inputs.dim() == 2:
+            return {"event": inputs}
+        elif inputs.dim() == 3:
+            return {"object": inputs}
+        else:
+            raise ValueError(f"Cannot infer input key from inputs shape {inputs.shape}. Provide batch parameter.")
 
     def get_default_loss_fn(self, task_type: str = "classification") -> nn.Module:
         """
