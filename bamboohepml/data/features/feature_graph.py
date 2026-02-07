@@ -523,14 +523,9 @@ class FeatureGraph:
         elif rtype == "energy_weighted_mean":
             weight_key = reduction["weight"]
             if weight_key not in context:
-                raise ValueError(
-                    f"Weight branch '{weight_key}' not found in context "
-                    f"for energy_weighted_mean reduction."
-                )
+                raise ValueError(f"Weight branch '{weight_key}' not found in context " f"for energy_weighted_mean reduction.")
             weight_value = context[weight_key]
-            return self.expression_engine.registry.get("energy_weighted_mean")(
-                source_value, weight_value
-            )
+            return self.expression_engine.registry.get("energy_weighted_mean")(source_value, weight_value)
         elif rtype == "sum":
             return self.expression_engine.registry.get("sum")(source_value)
         elif rtype == "mean":
@@ -566,12 +561,8 @@ class FeatureGraph:
                 if reduction is not None:
                     # R2 path: structured reduction block
                     if source not in context:
-                        raise ValueError(
-                            f"Source '{source}' not found for feature '{name}'"
-                        )
-                    raw_value = self._apply_reduction(
-                        reduction, context[source], context
-                    )
+                        raise ValueError(f"Source '{source}' not found for feature '{name}'")
+                    raw_value = self._apply_reduction(reduction, context[source], context)
                 elif expr:
                     # Legacy path: evaluate string expression
                     if self.expression_engine is None:
@@ -580,9 +571,7 @@ class FeatureGraph:
                 else:
                     # Direct source pass-through
                     if source not in context:
-                        raise ValueError(
-                            f"Source '{source}' not found for feature '{name}'"
-                        )
+                        raise ValueError(f"Source '{source}' not found for feature '{name}'")
                     raw_value = context[source]
 
                 # Fit normaliser / clipper and process
@@ -642,13 +631,8 @@ class FeatureGraph:
                     # R2 path: structured reduction
                     src_val = context.get(source)
                     if src_val is None:
-                        raise ValueError(
-                            f"Source '{source}' not found in context "
-                            f"for feature '{name}'"
-                        )
-                    raw_value = self._apply_reduction(
-                        reduction, src_val, context
-                    )
+                        raise ValueError(f"Source '{source}' not found in context " f"for feature '{name}'")
+                    raw_value = self._apply_reduction(reduction, src_val, context)
                 elif expr:
                     if self.expression_engine is None:
                         raise ValueError("Expression engine not set.")
@@ -656,10 +640,7 @@ class FeatureGraph:
                 else:
                     raw_value = context.get(source)
                     if raw_value is None:
-                        raise ValueError(
-                            f"Source '{source}' not found in context "
-                            f"for feature '{name}'"
-                        )
+                        raise ValueError(f"Source '{source}' not found in context " f"for feature '{name}'")
 
                 # 处理特征（使用已拟合的参数）
                 processed_value = processor.process(raw_value)

@@ -65,29 +65,17 @@ class ROOTDataSource(DataSource):
                     file_magic_vars: set[str] = set()
                     if self.config.file_magic is not None:
                         file_magic_vars = set(self.config.file_magic.keys())
-                    real_branches = [
-                        b for b in branches if b not in file_magic_vars
-                    ]
+                    real_branches = [b for b in branches if b not in file_magic_vars]
 
                     # Load real branches.
-                    outputs = self._load_real_branches(
-                        tree, real_branches, start, stop
-                    )
+                    outputs = self._load_real_branches(tree, real_branches, start, stop)
 
                     # Attach file_magic virtual variables.
-                    outputs = self._attach_file_magic(
-                        outputs, filepath, file_magic_vars
-                    )
+                    outputs = self._attach_file_magic(outputs, filepath, file_magic_vars)
 
                     # Clean up dummy field if present.
                     if "__dummy__" in outputs.fields:
-                        outputs = outputs[
-                            [
-                                fld
-                                for fld in outputs.fields
-                                if fld != "__dummy__"
-                            ]
-                        ]
+                        outputs = outputs[[fld for fld in outputs.fields if fld != "__dummy__"]]
 
                     table.append(outputs)
 
@@ -98,9 +86,7 @@ class ROOTDataSource(DataSource):
                 _logger.error(traceback.format_exc())
 
         if len(table) == 0:
-            raise RuntimeError(
-                f"Loaded zero records from {self._file_paths}."
-            )
+            raise RuntimeError(f"Loaded zero records from {self._file_paths}.")
 
         return _concat(table)
 
@@ -142,21 +128,12 @@ class ROOTDataSource(DataSource):
         treename = self.config.treename
         if treename is not None:
             return treename
-        treenames = {
-            k.split(";")[0]
-            for k, v in f.items()
-            if getattr(v, "classname", "") == "TTree"
-        }
+        treenames = {k.split(";")[0] for k, v in f.items() if getattr(v, "classname", "") == "TTree"}
         if len(treenames) == 1:
             return treenames.pop()
-        raise RuntimeError(
-            f"Multiple trees found in {filepath}: {treenames}. "
-            f"Specify `treename` explicitly."
-        )
+        raise RuntimeError(f"Multiple trees found in {filepath}: {treenames}. " f"Specify `treename` explicitly.")
 
-    def _entry_range(
-        self, tree: Any
-    ) -> tuple[int | None, int | None]:
+    def _entry_range(self, tree: Any) -> tuple[int | None, int | None]:
         """Compute start / stop indices from fractional load_range."""
         load_range = self.config.load_range
         if load_range is None:
@@ -239,9 +216,7 @@ class ROOTDataSource(DataSource):
         return outputs
 
     @staticmethod
-    def _dummy_length(
-        tree: Any, start: int | None, stop: int | None
-    ) -> int:
+    def _dummy_length(tree: Any, start: int | None, stop: int | None) -> int:
         """Compute dummy array length when no real branches are loaded."""
         if start is not None and stop is not None:
             return stop - start
