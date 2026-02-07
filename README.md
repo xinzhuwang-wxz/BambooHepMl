@@ -1,358 +1,301 @@
 # BambooHepMl
 
-> 一个面向高能物理的现代机器学习框架，结合了强大的特征工程能力和完整的 ML 工程实践。
+A machine learning framework for high energy physics, combining
+DAG-based feature engineering with a complete ML pipeline.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## ✨ 特性
+## Overview
 
-- 🎯 **配置驱动**：通过 YAML 配置完成所有特征工程，无需硬编码
-- 🧩 **模块化设计**：清晰的模块职责，易于扩展和维护
-- 🚀 **生产就绪**：完整的 ML pipeline（data → model → train → eval → export → serve）
-- ⚛️ **高能物理优化**：专为 HEP 数据格式和任务设计
-- 🔄 **灵活学习范式**：支持监督、半监督、无监督学习
-- 📦 **开箱即用**：集成 Docker、ONNX、FastAPI、Ray Serve 等现代工具
+BambooHepMl provides a configuration-driven workflow for training,
+evaluating, and serving ML models on HEP detector data. It reads
+variable-length collections from EDM4hep/podio ROOT files, reduces them
+to event-level scalars through a declarative feature graph, and feeds
+the result into PyTorch or XGBoost models. The full pipeline -- from raw
+ROOT files to ONNX export and FastAPI serving -- is controlled by three
+YAML configuration files.
 
-## 🏗️ 架构
+## Architecture
 
 ```
-BambooHepMl/
-├── bamboohepml/          # 核心包
-│   ├── data/             # 数据与特征系统
-│   ├── models/           # 模型定义
-│   ├── engine/           # 训练引擎
-│   ├── tasks/            # 任务子系统
-│   ├── pipeline/         # Pipeline 编排
-│   ├── scheduler/        # 调度系统
-│   ├── serve/            # 服务部署
-│   └── experiment/       # 实验跟踪
-├── tests/                # 测试套件
-├── configs/              # 配置示例
-└── docs/                 # 文档
+bamboohepml/
+  cli.py                 # Typer CLI entry point
+  config.py              # Global logging and MLflow setup
+  metadata.py            # Model metadata persistence
+  utils.py               # Shared utilities
+  data/
+    dataset.py           # HEPDataset (PyTorch Dataset)
+    config.py            # DataConfig (labels, branches, splits)
+    preprocess.py        # Normalization and preprocessing
+    fileio.py            # ROOT/Parquet/HDF5 I/O helpers
+    features/
+      feature_graph.py   # DAG-based feature computation
+      expression.py      # Expression engine (safe_sum, etc.)
+      processors.py      # Normalizer, Clipper, Padder
+    sources/
+      factory.py         # Auto-detect file format
+      root_source.py     # uproot-based ROOT reader
+      parquet_source.py  # Parquet reader
+      hdf5_source.py     # HDF5 reader
+  models/
+    base.py              # BaseModel, ClassificationModel, RegressionModel
+    registry.py          # @register_model decorator and get_model()
+    common/mlp.py        # MLPClassifier, MLPRegressor
+  engine/
+    predictor.py         # Batch prediction loop
+  pipeline/
+    orchestrator.py      # PipelineOrchestrator (unified entry point)
+    state.py             # PipelineState serialization
+  tasks/
+    train.py             # Training task (Torch + XGBoost)
+    predict.py           # Prediction task
+    export.py            # ONNX export
+    inspect.py           # Data and feature inspection
+  scheduler/
+    local.py             # LocalScheduler
+    slurm.py             # SLURMScheduler
+  serve/
+    cli.py               # serve fastapi / serve ray sub-commands
+    fastapi_server.py    # FastAPI inference server
+    ray_serve.py         # Ray Serve deployment
+    onnx_predictor.py    # ONNX Runtime predictor
+  experiment/
+    tracker.py           # Experiment tracker interface
+    mlflow_tracker.py    # MLflow integration
+    tensorboard_tracker.py
+configs/                 # Example YAML configurations
+tests/                   # Test suite (pytest)
 ```
 
-## 🚀 快速开始
+## Getting started
 
-### 安装
+### Prerequisites
+
+- Python 3.9 or later
+- PyTorch 1.12 or later
+- uproot 5, awkward 2 (for ROOT file I/O)
+
+### Installation
 
 ```bash
+git clone https://github.com/xinzhuwang-wxz/BambooHepMl.git
+cd BambooHepMl
 pip install -e .
 ```
 
-### 基本使用
+To install test and serve extras:
 
 ```bash
-# 训练模型
-bamboohepml train -c configs/pipeline.yaml --experiment-name my_exp
-
-# 预测
-bamboohepml predict -c configs/pipeline.yaml -m outputs/model.pt -o predictions.root
-
-# 导出 ONNX
-bamboohepml export -c configs/pipeline.yaml -m outputs/model.pt -o model.onnx
-
-# 启动推理服务
-bamboohepml serve fastapi -m outputs/model.pt -c configs/pipeline.yaml
+pip install -e ".[test]"
+pip install -e ".[serve]"
 ```
 
-## 📖 配置指南
+## Usage
 
-### Pipeline 配置 (`pipeline.yaml`)
+BambooHepMl provides five CLI commands.
+
+```bash
+# Train a model
+bamboohepml train -c configs/pipeline_edm4hep.yaml
+
+# Inspect data and features before training
+bamboohepml inspect -c configs/pipeline_edm4hep.yaml
+
+# Run prediction with a trained model
+bamboohepml predict -c configs/pipeline_edm4hep.yaml \
+  -m outputs/model.pt -o predictions.root
+
+# Export to ONNX
+bamboohepml export -m outputs/model.pt -o model.onnx
+
+# Start a FastAPI inference server
+bamboohepml serve fastapi --model-path outputs/model.pt \
+  --metadata-path outputs/metadata.json
+```
+
+All commands accept `--scheduler slurm --slurm-config slurm.sh` for
+batch submission.
+
+## Configuration
+
+The framework is driven by three YAML files.
+
+### Pipeline configuration
+
+`pipeline_edm4hep.yaml` defines data paths, model architecture, training
+hyper-parameters, and output settings:
 
 ```yaml
 data:
-  config_path: "configs/data.yaml"
-  source_path: "data/train.root"
-  treename: "Events"
-  val_split: 0.1
-
-features:
-  config_path: "configs/features.yaml"
+  source_path: "data/sim_*.root"
+  features_config: "configs/features_edm4hep.yaml"
+  train_range: [0.0, 0.7]
+  val_range: [0.7, 0.85]
+  test_range: [0.85, 1.0]
 
 model:
-  name: "ParticleTransformer"
-  params:
-    num_classes: 2
-    hidden_dim: 128
+  hidden_dims: [128, 64, 32]
+  dropout: 0.1
+  activation: relu
+  batch_norm: true
+  embed_dim: 64
 
-train:
-  num_epochs: 20
+training:
+  num_epochs: 5
   batch_size: 128
   learning_rate: 0.001
-  task_type: "classification"
-  learning_paradigm: "supervised"
+  optimizer: adam
+  early_stopping:
+    patience: 10
+    monitor: val_loss
+
+output:
+  base_dir: "outputs/edm4hep"
+  save_best: true
+  export_root: true
+
+mlflow:
+  enabled: true
 ```
 
-### 特征配置 (`features.yaml`)
+### Feature configuration
+
+`features_edm4hep.yaml` declares every feature used in the pipeline.
+Each feature specifies a full ROOT path in the `source` field and a
+`reduction` block for variable-length collections. No alias tables or
+`expr` strings are needed.
 
 ```yaml
 features:
-  event_level:                      # Event 级别特征
-    - name: "met"
-      source: "MET"
-      dtype: "float32"
+  event_level:
+    - name: ecal_barrel_energy
+      source: "EcalBarrelCollection/EcalBarrelCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
       normalize:
-        method: "auto"
+        method: auto
 
-    - name: "ht"
-      expr: "sum(Jet_pt)"           # 表达式特征
-      dtype: "float32"
+    - name: ecal_barrel_pos_x
+      source: "EcalBarrelCollection/EcalBarrelCollection.position.x"
+      type: event
+      reduction:
+        type: energy_weighted_mean
+        weight: "EcalBarrelCollection/EcalBarrelCollection.energy"
       normalize:
-        method: "manual"
-        center: 100.0
-        scale: 0.01
-
-  object_level:                     # Object 级别特征（变长序列）
-    - name: "jet_pt"
-      source: "Jet_pt"
-      dtype: "float32"
-      normalize:
-        method: "auto"
-      clip:
-        min: 0.0
-        max: 500.0
-      padding:
-        max_length: 128
-        mode: "constant"
-        value: 0.0
+        method: auto
 ```
 
-### 数据配置 (`data.yaml`)
+Supported reduction types:
 
-#### 分类任务
+| Reduction | Description |
+|-----------|-------------|
+| `safe_sum` | Sum over variable-length collection per event |
+| `energy_weighted_mean` | Weighted mean using an energy branch as weight |
 
-**方式 1: 字典方式（推荐）**
+### Data configuration
 
-```bash
-# 命令行配置
-data_train="B:/path/to/bb/*.root Bbar:/path/to/bbbar/*.root C:/path/to/cc/*.root"
-```
+Data YAML files define the ROOT tree name, label scheme, and optional
+file-magic rules for automatic label assignment from filenames.
 
-系统自动生成标签配置并推断类别数。
-
-**方式 2: 手动配置**
+Classification example (`data_edm4hep_classification.yaml`):
 
 ```yaml
-train_load_branches:
-  - "MET"
-  - "Jet_pt"
-  - "is_B"
-  - "is_Bbar"
-  - "is_C"
-
-test_load_branches:
-  - "MET"
-  - "Jet_pt"
+treename: "events"
 
 labels:
-  type: "simple"
+  type: simple
   value:
-    - "is_B"
-    - "is_Bbar"
-    - "is_C"
+    - is_3GeV
+    - is_5GeV
+    - is_7GeV
+
+file_magic:
+  is_3GeV:
+    "3\\.00GeV": 1
+  is_5GeV:
+    "5\\.00GeV": 1
+  is_7GeV:
+    "7\\.00GeV": 1
 ```
 
-#### 回归任务
+Regression example (`data_edm4hep_regression.yaml`):
 
 ```yaml
-train_load_branches:
-  - "MET"
-  - "Jet_pt"
-  - "target_value"
-
-test_load_branches:
-  - "MET"
-  - "Jet_pt"
+treename: "events"
 
 labels:
-  type: "complex"
+  type: complex
   value:
-    "_label_": "target_value"
+    _label_: "_IncidentEnergy"
 ```
 
-## 🎓 学习范式
+For regression, the `complex` label type maps `_label_` to a ROOT branch
+name whose values become continuous targets.
 
-### 有监督学习（默认）
+## Data sources
 
-```yaml
-train:
-  learning_paradigm: "supervised"
-  task_type: "classification"
-```
+The `DataSourceFactory` automatically selects a reader based on file
+extension:
 
-### 半监督学习
+| Extension | Reader |
+|-----------|--------|
+| `.root` | `ROOTDataSource` (uproot) |
+| `.parquet` | `ParquetDataSource` |
+| `.h5`, `.hdf5` | `HDF5DataSource` |
 
-```yaml
-train:
-  learning_paradigm: "semi-supervised"
-  task_type: "classification"
-  paradigm_config:
-    strategy: "self-training"        # 或 "consistency", "pseudo-labeling"
-    unsupervised_weight: 0.1
-    confidence_threshold: 0.9
-```
+Glob patterns are supported in `source_path` (e.g. `data/sim_*.root`).
 
-**标签约定**：
-- 有标签样本：`label >= 0`
-- 无标签样本：`label == -1`
+## Models
 
-### 无监督学习
+Models are registered via the `@register_model` decorator and created at
+runtime through `get_model()`.
 
-```yaml
-train:
-  learning_paradigm: "unsupervised"
-  paradigm_config:
-    method: "autoencoder"            # 或 "vae", "contrastive"
-    reconstruction_weight: 1.0
-    kl_weight: 0.001
-```
+Built-in models:
 
-## 💾 模型保存与推理
+| Name | Class | Task |
+|------|-------|------|
+| `mlp_classifier` | `MLPClassifier` | Classification |
+| `mlp_regressor` | `MLPRegressor` | Regression |
 
-### 模型保存
+Both accept `event_input_dim` and `object_input_dim` parameters. The
+`PipelineOrchestrator` infers these dimensions automatically from the
+feature graph. The forward method takes a batch dict with `"event"` and
+optionally `"object"` and `"mask"` keys.
 
-训练完成后会生成以下文件：
+## Development
 
-| 文件 | 说明 | 用途 |
-|------|------|------|
-| `best_model.pt` | 验证损失最小的模型 | ✅ 推荐用于推理 |
-| `final_model.pt` | 最后一个 epoch 的模型 | 训练完成时的状态 |
-| `model.pt` | `best_model.pt` 的副本 | ✅ 推荐用于推理 |
+### Code style
 
-**保存机制**：
-- 监控指标：`val_loss`（越小越好）
-- 自动保存：当 `val_loss` 改善时自动保存最佳模型
-- 保存格式：仅保存模型权重（`state_dict`），体积小，加载快
-
-### 预测
-
-#### 分类任务输出
-
-```python
-# ROOT 文件包含：
-{
-    "is_B": [True, False, ...],      # one-hot 标签
-    "score_B": [0.95, 0.05, ...],    # 类别分数
-    "prediction": [0, 1, ...],       # 预测类别
-    "_label_": [0, 1, ...],          # 真实标签
-    "met": [50.2, 45.8, ...],        # 观察变量
-}
-```
-
-#### 回归任务输出
-
-```python
-{
-    "prediction": [1.23, 2.45, ...], # 预测值
-    "_label_": [1.25, 2.50, ...],    # 真实标签
-    "met": [50.2, 45.8, ...],        # 观察变量
-}
-```
-
-#### 使用新数据推理
+The project uses black, isort, and flake8 with a 150-character line
+limit. CI enforces these on every push.
 
 ```bash
-# 分类模型
-bamboohepml predict \
-  -c configs/pipeline.yaml \
-  -m outputs/model.pt \
-  -o predictions.root \
-  --probabilities
-
-# 回归模型
-bamboohepml predict \
-  -c configs/pipeline.yaml \
-  -m outputs/model.pt \
-  -o predictions.root
+black bamboohepml tests
+isort bamboohepml tests
+flake8 bamboohepml
 ```
 
-**关键点**：
-- 推理时不需要标签字段
-- 只需在 `test_load_branches` 中包含特征字段
-- 标签字段为可选，如果存在会被保存到输出文件
-
-## 🐳 Docker 支持
-
-### CPU 版本
+### Running tests
 
 ```bash
-docker build -t bamboohepml:latest .
-docker run -v $(pwd)/configs:/app/configs -v $(pwd)/data:/app/data \
-    bamboohepml:latest python -m bamboohepml.cli train -c configs/pipeline.yaml
+pytest tests/ -v --tb=short
 ```
 
-### GPU 版本
+### Documentation
 
 ```bash
-docker build -f docker/Dockerfile.gpu -t bamboohepml:gpu .
-docker run --gpus all -v $(pwd)/configs:/app/configs -v $(pwd)/data:/app/data \
-    bamboohepml:gpu python -m bamboohepml.cli train -c configs/pipeline.yaml
+pip install mkdocs "mkdocstrings[python]"
+mkdocs serve     # local preview
+mkdocs build     # static build
 ```
 
-### 推理服务
+## License
 
-```bash
-docker run -p 8000:8000 -v $(pwd)/outputs:/app/outputs bamboohepml:latest \
-    python -m bamboohepml.serve.fastapi_server serve_fastapi \
-    --model-path outputs/model.pt --metadata-path outputs/metadata.json
-```
+[MIT](https://opensource.org/licenses/MIT)
 
-## 🧪 开发与测试
+## Acknowledgments
 
-### 代码风格
-
-```bash
-make style      # 格式化代码
-make clean      # 清理临时文件
-make test       # 运行测试
-make test-cov   # 测试覆盖率
-```
-
-### Pre-commit
-
-```bash
-pre-commit install
-pre-commit run --all-files
-```
-
-### 测试
-
-```bash
-# 运行所有新架构测试
-pytest tests/integration/test_new_architecture.py -v -s
-
-# 运行特定测试
-pytest tests/integration/test_new_architecture.py::test_only_event_features -v -s
-```
-
-**测试覆盖**：
-- ✅ Event-only 特征
-- ✅ Object-only 特征
-- ✅ Event + Object 特征组合
-- ✅ PipelineOrchestrator 自动维度推断
-- ✅ 回归任务
-- ✅ 真实 ROOT 文件测试
-
-## 📚 文档
-
-```bash
-# 安装文档依赖
-pip install mkdocs mkdocstrings[python]
-
-# 本地预览
-mkdocs serve
-
-# 构建文档
-mkdocs build
-```
-
-## 📄 许可证
-
-MIT License
-
-## 🙏 致谢
-
-BambooHepMl 的开发受到了以下项目的启发和支持：
-
-- **[weaver-core](https://github.com/colizz/weaver-core)**
-- **[Made-With-ML](https://github.com/GokuMohandas/Made-With-ML)**
+BambooHepMl draws inspiration from
+[weaver-core](https://github.com/colizz/weaver-core) and
+[Made-With-ML](https://github.com/GokuMohandas/Made-With-ML).
