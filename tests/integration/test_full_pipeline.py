@@ -82,7 +82,7 @@ def test_data_to_model_pipeline():
 
     # 1. 创建模型
     print("\n1. 创建模型...")
-    model = get_model("mlp_classifier", input_dim=10, hidden_dims=[32, 16], num_classes=2)
+    model = get_model("mlp_classifier", event_input_dim=10, hidden_dims=[32, 16], num_classes=2)
     assert model is not None
     print("   ✓ 模型创建成功")
 
@@ -91,8 +91,8 @@ def test_data_to_model_pipeline():
     X = torch.randn(32, 10)
 
     # 转换为模型输入格式
-    # 注意：模型 forward 方法期望 "features" 键，但在 pipeline 中 Trainer/Predictor 会将 input_key 转换为 "features"
-    batch = {"features": X}
+    # 注意：新架构模型 forward 方法期望 "event" 键
+    batch = {"event": X}
     print("   ✓ 数据创建成功")
 
     # 3. 测试前向传播
@@ -122,7 +122,7 @@ def test_train_eval_pipeline():
 
     # 1. 创建模型
     print("\n1. 创建模型...")
-    model = get_model("mlp_classifier", input_dim=10, hidden_dims=[32, 16], num_classes=2)
+    model = get_model("mlp_classifier", event_input_dim=10, hidden_dims=[32, 16], num_classes=2)
     print("   ✓ 模型创建成功")
 
     # 2. 创建数据
@@ -182,7 +182,7 @@ def test_export_predict_pipeline():
 
     # 1. 创建并训练模型
     print("\n1. 创建并训练模型...")
-    model = get_model("mlp_classifier", input_dim=10, hidden_dims=[32, 16], num_classes=2)
+    model = get_model("mlp_classifier", event_input_dim=10, hidden_dims=[32, 16], num_classes=2)
 
     # 简单训练
     train_dataset = TensorDataset(torch.randn(50, 10), torch.randint(0, 2, (50,)))
@@ -261,7 +261,7 @@ def test_full_pipeline_integration():
 
     # 2. Model: 创建模型
     print("\n2. [MODEL] 创建模型...")
-    model = get_model("mlp_classifier", input_dim=10, hidden_dims=[32, 16], num_classes=2)
+    model = get_model("mlp_classifier", event_input_dim=10, hidden_dims=[32, 16], num_classes=2)
     print("   ✓ 模型创建成功")
 
     # 3. Train: 训练模型

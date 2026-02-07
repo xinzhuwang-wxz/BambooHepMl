@@ -28,10 +28,19 @@ from .paradigms import LearningParadigm, SemiSupervisedParadigm, SupervisedParad
 
 
 def get_default_device() -> torch.device:
-    """获取默认设备（支持 CUDA, MPS, CPU）。"""
+    """获取默认设备（支持 CUDA, MPS, CPU）。
+
+    MPS (Apple Silicon GPU) is only used when the env var
+    ``BAMBOOHEPML_USE_MPS=1`` is set, because several PyTorch
+    operations (e.g. ``cross_entropy``) still segfault on MPS
+    with PyTorch ≤ 2.1.  Set the env var when you have verified
+    that your workload runs correctly on MPS.
+    """
+    import os
+
     if torch.cuda.is_available():
         return torch.device("cuda")
-    elif torch.backends.mps.is_available():
+    elif torch.backends.mps.is_available() and os.environ.get("BAMBOOHEPML_USE_MPS", "0") == "1":
         return torch.device("mps")
     else:
         return torch.device("cpu")

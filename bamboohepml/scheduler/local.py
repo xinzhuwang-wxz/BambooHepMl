@@ -31,6 +31,9 @@ class LocalScheduler(BaseScheduler):
         use_ray: bool = False,
         num_workers: int = 1,
         gpu_per_worker: int = 0,
+        task_type: str | None = None,
+        model_type: str | None = None,
+        run_index: int = 1,
         **kwargs,
     ) -> dict[str, Any]:
         """提交训练任务（本地执行）。"""
@@ -46,6 +49,9 @@ class LocalScheduler(BaseScheduler):
             use_ray=use_ray,
             num_workers=num_workers,
             gpu_per_worker=gpu_per_worker,
+            task_type=task_type,
+            model_type=model_type,
+            run_index=run_index,
         )
 
     def submit_predict(

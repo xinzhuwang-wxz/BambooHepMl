@@ -21,8 +21,9 @@ class DataSourceConfig:
         file_paths: 文件路径列表或 glob 模式
         treename: 树名称（ROOT 文件）
         branch_magic: 分支名称映射（ROOT 文件）
-        file_magic: 文件魔法变量（根据文件名模式设置变量值）
+        file_magic: 文件魔法变量（根据文件名模式设置变量值）— 已废弃
         load_range: 加载范围 (start, end)，范围在 [0, 1]
+        class_labels: 文件路径 → 类别索引映射（由 classes 标签系统生成）
     """
 
     file_paths: str | list[str]
@@ -30,6 +31,7 @@ class DataSourceConfig:
     branch_magic: dict[str, str] | None = None
     file_magic: dict[str, dict[str, Any]] | None = None
     load_range: tuple | None = None
+    class_labels: dict[str, int] | None = None
 
 
 class DataSource(ABC):

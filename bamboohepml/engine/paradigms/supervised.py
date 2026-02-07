@@ -73,6 +73,7 @@ class SupervisedParadigm(LearningParadigm):
 
         # 计算损失
         if task_type == "classification":
+            labels = labels.long()
             loss = loss_fn(outputs, labels)
         else:  # regression
             loss = loss_fn(outputs.squeeze(), labels.float())

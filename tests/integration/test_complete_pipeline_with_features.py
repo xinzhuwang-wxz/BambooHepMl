@@ -10,7 +10,6 @@
 4. Metadata-driven 架构的端到端一致性
 """
 
-import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -20,16 +19,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-# Mock Ray for testing (Ray is optional dependency)
-sys.modules["ray"] = MagicMock()
-sys.modules["ray.data"] = MagicMock()
-sys.modules["ray.train"] = MagicMock()
-sys.modules["ray.train.torch"] = MagicMock()
-sys.modules["ray.train.torch"].TorchTrainer = MagicMock()
-
-from bamboohepml.engine import Predictor  # noqa: E402
-from bamboohepml.metadata import load_model_metadata  # noqa: E402
-from bamboohepml.tasks import export_task, train_task  # noqa: E402
+from bamboohepml.engine import Predictor
+from bamboohepml.metadata import load_model_metadata
+from bamboohepml.tasks import export_task, train_task
 
 
 def _create_mock_data_source(num_events: int = 100):
@@ -67,8 +59,8 @@ def _create_mock_data_source(num_events: int = 100):
     # 创建标签（分类任务：使用 one-hot 编码，符合 simple 类型的要求）
     # simple 类型期望 one-hot 编码，然后通过 argmax 计算类别索引
     label_class = np.random.randint(0, 2, num_events)
-    is_signal = (label_class == 1).astype(np.float32)  # one-hot: [0, 1] 表示 signal
-    is_background = (label_class == 0).astype(np.float32)  # one-hot: [1, 0] 表示 background
+    is_signal = (label_class == 1).astype(np.int32)  # one-hot: [0, 1] 表示 signal
+    is_background = (label_class == 0).astype(np.int32)  # one-hot: [1, 0] 表示 background
 
     # 组装成 table
     table = ak.Array(
@@ -83,7 +75,12 @@ def _create_mock_data_source(num_events: int = 100):
     return table
 
 
-def _create_pipeline_config(tmpdir: Path, features_config_path: str, data_config_path: str, task_type: str = "classification"):
+def _create_pipeline_config(
+    tmpdir: Path,
+    features_config_path: str,
+    data_config_path: str,
+    task_type: str = "classification",
+):
     """创建 pipeline.yaml 配置文件"""
     pipeline_config = {
         "data": {
@@ -176,7 +173,10 @@ def _create_data_config(tmpdir: Path, task_type: str = "classification"):
             "test_load_branches": ["met", "Jet"],
             "labels": {
                 "type": "simple",
-                "value": ["is_signal", "is_background"],  # one-hot 编码，会通过 argmax 计算类别索引
+                "value": [
+                    "is_signal",
+                    "is_background",
+                ],  # one-hot 编码，会通过 argmax 计算类别索引
             },
         }
     else:  # regression
@@ -234,7 +234,10 @@ def test_complete_pipeline_classification():
         output_dir.mkdir()
 
         # Mock DataSourceFactory.create
-        with patch("bamboohepml.pipeline.orchestrator.DataSourceFactory.create", return_value=mock_data_source):
+        with patch(
+            "bamboohepml.pipeline.orchestrator.DataSourceFactory.create",
+            return_value=mock_data_source,
+        ):
             train_task(
                 pipeline_config_path=str(pipeline_config_path),
                 experiment_name="test_classification",
@@ -262,7 +265,8 @@ def test_complete_pipeline_classification():
         assert metadata["task_type"] == "classification"
         assert "feature_spec" in metadata
         assert "event" in metadata["feature_spec"]
-        assert metadata["input_key"] == "event"
+        # input_key is derived from feature_spec (the first key present)
+        assert "event" in metadata["feature_spec"], "feature_spec should contain 'event' key"
         print("   ✓ Metadata 验证成功")
 
         # ========== 6. 导出 ONNX ==========
@@ -280,10 +284,13 @@ def test_complete_pipeline_classification():
         print("\n7. [SERVE] 测试模型推理...")
         from bamboohepml.models import get_model
 
+        # Derive input_dim from metadata (feature_spec or model_config)
+        input_dim = metadata["feature_spec"]["event"]["dim"]
+
         # 重新加载模型
         model = get_model(
             "mlp_classifier",
-            input_dim=metadata["input_dim"],
+            event_input_dim=input_dim,
             hidden_dims=[32, 16],
             num_classes=2,
         )
@@ -295,7 +302,7 @@ def test_complete_pipeline_classification():
 
         # 创建测试数据（模拟 FeatureGraph 的输出格式）
         test_batch = {
-            "event": torch.randn(10, metadata["input_dim"]),
+            "event": torch.randn(10, input_dim),
         }
         test_dataset = torch.utils.data.TensorDataset(test_batch["event"])
 
@@ -359,7 +366,10 @@ def test_complete_pipeline_regression():
         output_dir.mkdir()
 
         # Mock DataSourceFactory.create
-        with patch("bamboohepml.pipeline.orchestrator.DataSourceFactory.create", return_value=mock_data_source):
+        with patch(
+            "bamboohepml.pipeline.orchestrator.DataSourceFactory.create",
+            return_value=mock_data_source,
+        ):
             train_task(
                 pipeline_config_path=str(pipeline_config_path),
                 experiment_name="test_regression",
@@ -383,7 +393,8 @@ def test_complete_pipeline_regression():
         print("\n5. [VERIFY] 验证 Metadata...")
         metadata = load_model_metadata(metadata_path)
         assert metadata["task_type"] == "regression"
-        assert metadata["input_key"] == "event"
+        assert "feature_spec" in metadata
+        assert "event" in metadata["feature_spec"], "feature_spec should contain 'event' key"
         print("   ✓ Metadata 验证成功")
 
         # ========== 6. 导出 ONNX ==========

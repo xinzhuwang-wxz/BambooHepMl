@@ -10,20 +10,6 @@ import torch
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Mock missing dependencies for testing environment
-sys.modules["onnx"] = MagicMock()
-sys.modules["onnxruntime"] = MagicMock()
-sys.modules["ray"] = MagicMock()
-sys.modules["ray.data"] = MagicMock()
-sys.modules["ray.train"] = MagicMock()
-sys.modules["ray.train.torch"] = MagicMock()
-sys.modules["ray.air"] = MagicMock()
-sys.modules["ray.air.integrations"] = MagicMock()
-sys.modules["ray.air.integrations.mlflow"] = MagicMock()
-
-# Ensure TorchTrainer exists in the mocked module
-sys.modules["ray.train.torch"].TorchTrainer = MagicMock()
-
 from bamboohepml.tasks.train import train_task
 
 
@@ -45,7 +31,15 @@ class TestTrainTaskRefactor(unittest.TestCase):
     @patch("torch.save")  # Patch torch.save to avoid pickling errors
     @patch("bamboohepml.metadata.save_model_metadata")  # Patch at source to avoid JSON serialization of mocks
     @patch("bamboohepml.tasks.train.save_model_metadata")  # Also patch the module-level import
-    def test_local_backend(self, mock_save_metadata, mock_save_metadata2, mock_save, mock_dataloader, mock_trainer_cls, mock_orchestrator_cls):
+    def test_local_backend(
+        self,
+        mock_save_metadata,
+        mock_save_metadata2,
+        mock_save,
+        mock_dataloader,
+        mock_trainer_cls,
+        mock_orchestrator_cls,
+    ):
         """Test LocalBackend workflow: Orchestrator -> DataLoader -> Trainer -> fit"""
 
         # Setup mocks
@@ -59,7 +53,10 @@ class TestTrainTaskRefactor(unittest.TestCase):
         }
         mock_orchestrator.get_input_dim_from_spec.return_value = 10
         mock_orchestrator.setup_model.return_value = MagicMock(spec=torch.nn.Module)
-        mock_orchestrator.setup_data.return_value = (MagicMock(), MagicMock())  # (train_dataset, val_dataset)
+        mock_orchestrator.setup_data.return_value = (
+            MagicMock(),
+            MagicMock(),
+        )  # (train_dataset, val_dataset)
 
         mock_trainer_instance = mock_trainer_cls.return_value
         mock_trainer_instance.optimizer = MagicMock()
@@ -68,7 +65,12 @@ class TestTrainTaskRefactor(unittest.TestCase):
 
         # Execute
         output_dir = os.path.join(self.test_dir, "output")
-        train_task(pipeline_config_path=self.config_path, experiment_name="test_local", use_ray=False, output_dir=output_dir)
+        train_task(
+            pipeline_config_path=self.config_path,
+            experiment_name="test_local",
+            use_ray=False,
+            output_dir=output_dir,
+        )
 
         # Verifications
         # 1. Orchestrator initialized
@@ -92,6 +94,7 @@ class TestTrainTaskRefactor(unittest.TestCase):
             task_type="classification",
             learning_paradigm="supervised",
             paradigm_config={},
+            callbacks=ANY,
             # device is auto-detected
         )
 
@@ -116,7 +119,10 @@ class TestTrainTaskRefactor(unittest.TestCase):
                 "learning_paradigm": "semi_supervised",
             }
             mock_orchestrator.config = {"model": {"name": "test_model", "params": {}}}
-            mock_orchestrator.setup_data.return_value = (MagicMock(), MagicMock())  # (train_dataset, val_dataset)
+            mock_orchestrator.setup_data.return_value = (
+                MagicMock(),
+                MagicMock(),
+            )  # (train_dataset, val_dataset)
             mock_orchestrator.get_input_dim_from_spec.return_value = 10
             mock_orchestrator.setup_model.return_value = MagicMock(spec=torch.nn.Module)
 
@@ -124,7 +130,12 @@ class TestTrainTaskRefactor(unittest.TestCase):
             mock_ray.is_initialized.return_value = False
 
             # Execute
-            train_task(pipeline_config_path=self.config_path, use_ray=True, num_workers=2, gpu_per_worker=0)
+            train_task(
+                pipeline_config_path=self.config_path,
+                use_ray=True,
+                num_workers=2,
+                gpu_per_worker=0,
+            )
 
             # Verifications
             # 1. Ray init

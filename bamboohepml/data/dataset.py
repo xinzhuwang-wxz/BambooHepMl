@@ -169,7 +169,10 @@ class HEPDataset(IterableDataset):
             # 使用缓存数据重新生成索引（支持每个 epoch 重新采样/打乱）
             if self.reweight and self._cached_weights is not None:
                 indices = _get_reweight_indices(
-                    self._cached_weights, up_sample=self.up_sample, weight_scale=self.weight_scale, max_resample=self.max_resample
+                    self._cached_weights,
+                    up_sample=self.up_sample,
+                    weight_scale=self.weight_scale,
+                    max_resample=self.max_resample,
                 )
             else:
                 indices = np.arange(self._num_events)
@@ -208,7 +211,13 @@ class HEPDataset(IterableDataset):
         # label_value 中的字段（如 is_signal）是原始字段，需要被加载
         # 注意：如果使用字典方式（file_magic），is_label 等变量是通过 file_magic 自动生成的，
         # 不需要从 ROOT 文件加载，所以需要检查数据源是否有 file_magic 配置
-        if self.data_config.label_value:
+        if self.data_config.class_names is not None:
+            # Classes-based labels: _label_ is injected by the DataSource
+            # (via class_labels mapping).  We add it to load_branches so
+            # the DataSource knows to include it, but the ROOTDataSource
+            # will strip it from real branches and inject it itself.
+            load_branches.add("_label_")
+        elif self.data_config.label_value:
             # 检查数据源是否有 file_magic（字典方式）
             has_file_magic = hasattr(self.data_source, "config") and self.data_source.config.file_magic is not None
 
@@ -252,17 +261,26 @@ class HEPDataset(IterableDataset):
 
         # 5. 构建新变量
         aux_branches = self.data_config.train_aux_branches if self.for_training else self.data_config.test_aux_branches
-        table = _build_new_variables(table, {k: v for k, v in self.data_config.var_funcs.items() if k in aux_branches})
+        table = _build_new_variables(
+            table,
+            {k: v for k, v in self.data_config.var_funcs.items() if k in aux_branches},
+        )
 
         # 6. 检查标签
-        if self.data_config.label_type == "simple" and self.for_training:
+        # Skip label consistency check for classes-based labels (no _labelcheck_ variable).
+        if self.data_config.label_type == "simple" and self.for_training and self.data_config.class_names is None:
             _check_labels(table, self.data_config)
 
         # 7. 计算重加权索引
         weights = None
         if self.reweight and self.data_config.weight_name is not None:
             weights = _build_weights(table, self.data_config)
-            indices = _get_reweight_indices(weights, up_sample=self.up_sample, weight_scale=self.weight_scale, max_resample=self.max_resample)
+            indices = _get_reweight_indices(
+                weights,
+                up_sample=self.up_sample,
+                weight_scale=self.weight_scale,
+                max_resample=self.max_resample,
+            )
         else:
             indices = np.arange(len(table))
 

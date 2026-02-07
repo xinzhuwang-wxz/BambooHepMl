@@ -77,14 +77,22 @@ class LocalBackend(TrainingBackend):
         # 4. 准备 DataLoaders
         # LocalBackend 使用标准的 PyTorch DataLoader
         train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=train_config.get("batch_size", 32), collate_fn=collate_fn, num_workers=0, pin_memory=True  # 简化起见，可配置
+            train_dataset,
+            batch_size=train_config.get("batch_size", 32),
+            collate_fn=collate_fn,
+            num_workers=0,
+            pin_memory=True,  # 简化起见，可配置
         )
 
         # 验证集
         val_loader = None
         if val_dataset:
             val_loader = torch.utils.data.DataLoader(
-                val_dataset, batch_size=train_config.get("batch_size", 32), collate_fn=collate_fn, num_workers=0, pin_memory=True
+                val_dataset,
+                batch_size=train_config.get("batch_size", 32),
+                collate_fn=collate_fn,
+                num_workers=0,
+                pin_memory=True,
             )
 
         # 6. 初始化 Trainer
@@ -92,6 +100,23 @@ class LocalBackend(TrainingBackend):
         learning_paradigm = train_config.get("learning_paradigm", "supervised")
         paradigm_config = train_config.get("paradigm_config", {})
         task_type = train_config.get("task_type", "classification")
+
+        # 创建 MLflow callback（如果有实验/运行名称）
+        callbacks = []
+        mlflow_experiment = kwargs.get("mlflow_experiment_name")
+        mlflow_run = kwargs.get("mlflow_run_name")
+        if mlflow_experiment or mlflow_run:
+            try:
+                from ..engine.callbacks import MLflowCallback
+
+                mlflow_callback = MLflowCallback(
+                    experiment_name=mlflow_experiment,
+                    run_name=mlflow_run,
+                )
+                callbacks.append(mlflow_callback)
+                logger.info(f"MLflow tracking enabled: experiment='{mlflow_experiment}', " f"run='{mlflow_run}'")
+            except Exception as e:
+                logger.warning(f"Failed to create MLflowCallback: {e}")
 
         trainer = Trainer(
             model=model,
@@ -101,6 +126,7 @@ class LocalBackend(TrainingBackend):
             task_type=task_type,
             learning_paradigm=learning_paradigm,
             paradigm_config=paradigm_config,
+            callbacks=callbacks,
             # device=None, # 自动检测
         )
 
@@ -419,6 +445,50 @@ class RayBackend(TrainingBackend):
         return {"results": results}
 
 
+def _resolve_data_config_path(task_type: str, pipeline_config_path: str) -> str:
+    """
+    Resolve the data config YAML path for a given task_type.
+
+    Looks for configs/data_edm4hep_{task_type}.yaml relative to the
+    pipeline config directory.  Returns an absolute path string.
+
+    Args:
+        task_type: 'classification' or 'regression'
+        pipeline_config_path: path to the pipeline YAML (used as anchor)
+
+    Returns:
+        Absolute path to the data config YAML
+
+    Raises:
+        FileNotFoundError: if the resolved file does not exist
+    """
+    config_dir = Path(pipeline_config_path).resolve().parent
+    data_config = config_dir / f"data_edm4hep_{task_type}.yaml"
+    if not data_config.exists():
+        raise FileNotFoundError(f"Data config for task_type='{task_type}' not found: {data_config}")
+    return str(data_config)
+
+
+def _resolve_model_name(task_type: str, model_type: str) -> str | None:
+    """
+    Derive the concrete model name from task_type + model_type.
+
+    Returns None (with a warning) for unsupported combinations.
+    """
+    mapping = {
+        ("classification", "torch"): "mlp_classifier",
+        ("regression", "torch"): "mlp_regressor",
+        ("classification", "xgboost"): "xgb_classifier",
+        ("regression", "xgboost"): "xgb_regressor",
+    }
+    name = mapping.get((task_type, model_type))
+    if name is None:
+        logger.warning(
+            f"No built-in model mapping for task_type='{task_type}', " f"model_type='{model_type}'. Falling back to config-driven model selection."
+        )
+    return name
+
+
 def train_task(
     pipeline_config_path: str,
     experiment_name: str | None = None,
@@ -429,12 +499,82 @@ def train_task(
     use_ray: bool = False,
     num_workers: int = 1,
     gpu_per_worker: int = 0,
+    task_type: str | None = None,
+    model_type: str | None = None,
+    run_index: int = 1,
 ) -> dict[str, Any]:
     """
     训练任务入口
+
+    Args:
+        pipeline_config_path: pipeline.yaml 路径
+        experiment_name: MLflow 实验名称
+        num_epochs / batch_size / learning_rate: 训练超参覆盖
+        output_dir: 输出目录（若 task_type/model_type 指定，自动加子目录）
+        use_ray: 是否使用 Ray 分布式训练
+        num_workers / gpu_per_worker: Ray 配置
+        task_type: 'classification' 或 'regression'（多实验模式）
+        model_type: 'torch' 或 'xgboost'（多实验模式）
+        run_index: 当前重复运行序号（用于 seed 偏移和日志）
     """
     # 1. 初始化 Pipeline Orchestrator
     orchestrator = PipelineOrchestrator(pipeline_config_path)
+
+    # --- Multi-experiment overrides ---
+    if task_type is not None:
+        # Inject the task-specific data config into the orchestrator config
+        data_config_path = _resolve_data_config_path(task_type, pipeline_config_path)
+        orchestrator.config.setdefault("data", {})["config_path"] = data_config_path
+        logger.info(f"[multi-run] task_type='{task_type}' → data config: {data_config_path}")
+
+    if model_type is not None and task_type is not None:
+        model_name = _resolve_model_name(task_type, model_type)
+        if model_name is not None:
+            orchestrator.config.setdefault("model", {})["name"] = model_name
+            logger.info(f"[multi-run] model_type='{model_type}' → model name: {model_name}")
+
+    if task_type is not None:
+        # Ensure training config has the correct task_type
+        training_section = orchestrator.config.get("training", orchestrator.config.get("train", {}))
+        training_section["task_type"] = task_type
+        # Write it back under the canonical key
+        orchestrator.config["training"] = training_section
+
+    # Resolve output subdirectory for multi-experiment runs
+    effective_output_dir = output_dir
+    if task_type is not None and model_type is not None:
+        sub = f"{task_type}_{model_type}/run_{run_index}"
+        if effective_output_dir:
+            effective_output_dir = str(Path(effective_output_dir) / sub)
+        else:
+            base = orchestrator.config.get("output", {}).get("base_dir", "outputs")
+            effective_output_dir = str(Path(base) / sub)
+        logger.info(f"[multi-run] output directory: {effective_output_dir}")
+
+    # Auto-generate MLflow experiment/run names for multi-experiment mode
+    # Convention: experiment = {task_type}_{model_type}, run = {model_type}_{timestamp}
+    effective_experiment_name = experiment_name
+    if effective_experiment_name is None and task_type is not None and model_type is not None:
+        effective_experiment_name = f"{task_type}_{model_type}"
+        logger.info(f"[multi-run] experiment name: {effective_experiment_name}")
+
+    from datetime import datetime
+
+    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if task_type is not None and model_type is not None:
+        # Use the concrete model name (e.g. mlp_classifier) for readability,
+        # falling back to model_type (e.g. torch) if unresolved
+        resolved_name = _resolve_model_name(task_type, model_type)
+        run_model_label = resolved_name or model_type
+        mlflow_run_name = f"{run_model_label}_{run_timestamp}"
+    else:
+        mlflow_run_name = f"run_{run_timestamp}"
+
+    # Seed variation per run
+    seed = orchestrator.config.get("training", {}).get("seed", 42)
+    run_seed = seed + (run_index - 1)
+    set_seeds(run_seed)
+    logger.info(f"[multi-run] run_index={run_index}, seed={run_seed}")
 
     # 2. 设置数据
     logger.info("Setting up data system...")
@@ -452,7 +592,29 @@ def train_task(
     if learning_rate is not None:
         train_config["learning_rate"] = learning_rate
 
-    # 4. 设置模型
+    # Ensure task_type is set in train_config for downstream consumers
+    if task_type is not None:
+        train_config["task_type"] = task_type
+
+    # --- XGBoost branch: separate code path ---
+    if model_type == "xgboost":
+        from .xgboost_train import train_xgboost_task
+
+        resolved_task = task_type or train_config.get("task_type", "classification")
+        result = train_xgboost_task(
+            orchestrator=orchestrator,
+            train_dataset=train_dataset,
+            val_dataset=val_dataset,
+            task_type=resolved_task,
+            effective_experiment_name=effective_experiment_name,
+            mlflow_run_name=mlflow_run_name,
+            output_dir=effective_output_dir,
+            num_epochs=train_config.get("num_epochs"),
+            seed=run_seed,
+        )
+        return result
+
+    # 4. 设置模型（PyTorch path）
     logger.info("Setting up model...")
     # 此时 FeatureGraph 已拟合，可以准确推断维度
     model = orchestrator.setup_model()
@@ -471,13 +633,15 @@ def train_task(
         train_dataset=train_dataset,
         val_dataset=val_dataset,
         train_config=train_config,
-        output_dir=output_dir,
+        output_dir=effective_output_dir,
         orchestrator=orchestrator,  # 传递 orchestrator 以便保存状态
+        mlflow_experiment_name=effective_experiment_name,
+        mlflow_run_name=mlflow_run_name,
     )
 
     # 6. 保存 PipelineState 和 Metadata
-    if output_dir:
-        output_path = Path(output_dir)
+    if effective_output_dir:
+        output_path = Path(effective_output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
         # 保存 PipelineState
@@ -489,16 +653,16 @@ def train_task(
         feature_graph = orchestrator.get_feature_graph()
         feature_spec = feature_graph.output_spec() if feature_graph else {}
         feature_state = feature_graph.export_state() if feature_graph else {}
-        task_type = train_config.get("task_type", "classification")
+        resolved_task_type = train_config.get("task_type", "classification")
 
         save_model_metadata(
             output_path / "metadata.json",
             feature_spec=feature_spec,
-            task_type=task_type,
+            task_type=resolved_task_type,
             model_config=orchestrator.get_model_config(),
             feature_state=feature_state,
-            experiment_name=experiment_name,
+            experiment_name=effective_experiment_name,
         )
-        logger.info(f"Saved pipeline state and metadata to {output_dir}")
+        logger.info(f"Saved pipeline state and metadata to {effective_output_dir}")
 
     return result

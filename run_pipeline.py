@@ -24,7 +24,7 @@ Usage examples:
     python run_pipeline.py --task regression --model xgboost --device cpu
 
 Experiment naming convention:
-    experiment name = {task_type}_{model_type}_edm4hep
+    experiment name = {task_type}_{model_type}
     run name        = {model_type}_{YYYYMMdd_HHmmss}
 
 Output structure:
@@ -52,6 +52,7 @@ from typing import Any
 
 import awkward as ak
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -84,6 +85,7 @@ CLASS_NAMES = ["3 GeV", "5 GeV", "7 GeV"]
 # ═════════════════════════════════════════════════════════════════════════
 # Utility helpers
 # ═════════════════════════════════════════════════════════════════════════
+
 
 def resolve_device(requested: str | None = None) -> torch.device:
     """Return the best available device or honour an explicit request.
@@ -135,15 +137,14 @@ def discover_root_files(data_dir: str = DATA_DIR) -> list[str]:
         all_files.extend(resolved)
 
     if not all_files:
-        raise FileNotFoundError(
-            f"No ROOT files found for pattern(s): {data_dir}"
-        )
+        raise FileNotFoundError(f"No ROOT files found for pattern(s): {data_dir}")
     return sorted(set(all_files))
 
 
 # ═════════════════════════════════════════════════════════════════════════
 # Data pipeline (shared across all experiment types)
 # ═════════════════════════════════════════════════════════════════════════
+
 
 def build_feature_graph(
     features_config: str = FEATURES_CONFIG,
@@ -186,15 +187,15 @@ def create_data_sources(
         branch_magic=data_conf.get("branch_magic"),
         file_magic=data_conf.get("file_magic"),
     )
-    train = ROOTDataSource(DataSourceConfig(
-        file_paths=root_files, load_range=train_range, **common
-    ))
-    val = ROOTDataSource(DataSourceConfig(
-        file_paths=root_files, load_range=val_range, **common
-    ))
-    test = ROOTDataSource(DataSourceConfig(
-        file_paths=root_files, load_range=test_range, **common
-    ))
+    train = ROOTDataSource(
+        DataSourceConfig(file_paths=root_files, load_range=train_range, **common)
+    )
+    val = ROOTDataSource(
+        DataSourceConfig(file_paths=root_files, load_range=val_range, **common)
+    )
+    test = ROOTDataSource(
+        DataSourceConfig(file_paths=root_files, load_range=test_range, **common)
+    )
     return train, val, test
 
 
@@ -209,7 +210,9 @@ def fit_feature_graph(
         train_source: Training data source.
     """
     source_branches = list(fg.get_source_branches())
-    print(f"  Fitting normalizers on training data ({len(source_branches)} source branches)...")
+    print(
+        f"  Fitting normalizers on training data ({len(source_branches)} source branches)..."
+    )
     fit_data = train_source.load_branches(source_branches)
     fg.fit(fit_data)
     print(f"  Fitted on {len(fit_data)} events.")
@@ -217,8 +220,10 @@ def fit_feature_graph(
     # Quick sanity check.
     batch = fg.build_batch(fit_data[:10])
     ev = batch["event"]
-    print(f"  Sanity check — event tensor shape: {ev.shape}, "
-          f"range: [{ev.min():.3f}, {ev.max():.3f}]")
+    print(
+        f"  Sanity check — event tensor shape: {ev.shape}, "
+        f"range: [{ev.min():.3f}, {ev.max():.3f}]"
+    )
 
 
 def build_dataloaders(
@@ -256,15 +261,14 @@ def build_dataloaders(
             shuffle=shuffle,
             reweight=False,
         )
-        loaders.append(
-            DataLoader(ds, batch_size=batch_size, collate_fn=collate_fn)
-        )
+        loaders.append(DataLoader(ds, batch_size=batch_size, collate_fn=collate_fn))
     return tuple(loaders)
 
 
 # ═════════════════════════════════════════════════════════════════════════
 # Torch training helpers
 # ═════════════════════════════════════════════════════════════════════════
+
 
 def train_torch_model(
     model: nn.Module,
@@ -314,9 +318,11 @@ def train_torch_model(
         monitor="loss",
     )
     elapsed = time.time() - t0
-    print(f"  Training completed in {elapsed:.1f}s "
-          f"(best epoch {result['best_epoch']}, "
-          f"best val loss {result['best_value']:.4f})")
+    print(
+        f"  Training completed in {elapsed:.1f}s "
+        f"(best epoch {result['best_epoch']}, "
+        f"best val loss {result['best_value']:.4f})"
+    )
 
     test_metrics = trainer.test()
     print("  Test metrics:")
@@ -329,6 +335,7 @@ def train_torch_model(
 # ═════════════════════════════════════════════════════════════════════════
 # XGBoost helpers
 # ═════════════════════════════════════════════════════════════════════════
+
 
 def build_numpy_data(
     fg: FeatureGraph,
@@ -358,9 +365,9 @@ def build_numpy_data(
         file_magic=data_conf.get("file_magic"),
     )
 
-    source = ROOTDataSource(DataSourceConfig(
-        file_paths=root_files, load_range=lr, **common
-    ))
+    source = ROOTDataSource(
+        DataSourceConfig(file_paths=root_files, load_range=lr, **common)
+    )
 
     # Determine what branches to load.
     source_branches = list(fg.get_source_branches())
@@ -412,7 +419,11 @@ def train_xgboost(
     for split in ["train", "val", "test"]:
         X, y = build_numpy_data(fg, root_files, data_conf, task_type, split)
         datasets[split] = (X, y)
-        dist = np.bincount(y.astype(int), minlength=NUM_CLASSES).tolist() if task_type == "classification" else f"mean={y.mean():.2f}"
+        dist = (
+            np.bincount(y.astype(int), minlength=NUM_CLASSES).tolist()
+            if task_type == "classification"
+            else f"mean={y.mean():.2f}"
+        )
         print(f"  {split}: X={X.shape}, y dist={dist}")
 
     X_train, y_train = datasets["train"]
@@ -433,6 +444,7 @@ def train_xgboost(
         model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
 
         from sklearn.metrics import accuracy_score, f1_score
+
         y_pred = model.predict(X_test)
         metrics = {
             "accuracy": float(accuracy_score(y_test, y_pred)),
@@ -476,21 +488,29 @@ def train_xgboost(
 # Plotting
 # ═════════════════════════════════════════════════════════════════════════
 
+
 def plot_classification(
     model: nn.Module,
     test_loader: DataLoader,
     history: dict,
     save_dir: str,
+    class_names: list[str] | None = None,
 ) -> None:
     """Generate and save classification evaluation plots."""
+    # Resolve class names: prefer explicit argument, fall back to global constant
+    _class_names = class_names if class_names is not None else CLASS_NAMES
+    _num_classes = len(_class_names)
+
     model.eval()
     device = next(model.parameters()).device
     all_preds, all_labels, all_probs = [], [], []
 
     with torch.no_grad():
         for batch in test_loader:
-            bd = {k: v.to(device) if isinstance(v, torch.Tensor) else v
-                  for k, v in batch.items()}
+            bd = {
+                k: v.to(device) if isinstance(v, torch.Tensor) else v
+                for k, v in batch.items()
+            }
             out = model(bd)
             probs = torch.softmax(out, dim=1)
             all_preds.append(torch.argmax(out, dim=1).cpu().numpy())
@@ -509,48 +529,75 @@ def plot_classification(
     if history.get("val_loss"):
         ax.plot(history["val_loss"], label="Val Loss")
     ax.set(xlabel="Epoch", ylabel="Loss", title="Training History")
-    ax.legend(); ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
 
     # Confusion matrix.
     from sklearn.metrics import confusion_matrix
+
     ax = axes[0, 1]
     cm = confusion_matrix(labels, preds)
     im = ax.imshow(cm, cmap=plt.cm.Blues)
     ax.set(title="Confusion Matrix", xlabel="Predicted", ylabel="True")
-    ax.set_xticks(range(NUM_CLASSES)); ax.set_yticks(range(NUM_CLASSES))
-    ax.set_xticklabels(CLASS_NAMES); ax.set_yticklabels(CLASS_NAMES)
-    for i in range(NUM_CLASSES):
-        for j in range(NUM_CLASSES):
-            ax.text(j, i, str(cm[i, j]), ha="center", va="center",
-                    color="white" if cm[i, j] > cm.max() / 2 else "black")
+    ax.set_xticks(range(_num_classes))
+    ax.set_yticks(range(_num_classes))
+    ax.set_xticklabels(_class_names)
+    ax.set_yticklabels(_class_names)
+    for i in range(_num_classes):
+        for j in range(_num_classes):
+            ax.text(
+                j,
+                i,
+                str(cm[i, j]),
+                ha="center",
+                va="center",
+                color="white" if cm[i, j] > cm.max() / 2 else "black",
+            )
     plt.colorbar(im, ax=ax)
 
     # ROC curves.
     from sklearn.metrics import auc, roc_curve
+
     ax = axes[1, 0]
-    for i, name in enumerate(CLASS_NAMES):
+    for i, name in enumerate(_class_names):
         fpr, tpr, _ = roc_curve((labels == i).astype(int), probs[:, i])
         ax.plot(fpr, tpr, label=f"{name} (AUC={auc(fpr, tpr):.3f})")
     ax.plot([0, 1], [0, 1], "k--", alpha=0.3)
     ax.set(xlabel="FPR", ylabel="TPR", title="ROC Curves")
-    ax.legend(); ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
 
     # Score distributions.
     ax = axes[1, 1]
-    for i, name in enumerate(CLASS_NAMES):
+    for i, name in enumerate(_class_names):
         s = probs[:, i]
-        ax.hist(s[labels == i], bins=30, alpha=0.5, density=True,
-                label=f"{name} (sig)", histtype="stepfilled")
-        ax.hist(s[labels != i], bins=30, alpha=0.3, density=True,
-                label=f"{name} (bkg)", histtype="step", linestyle="--")
+        ax.hist(
+            s[labels == i],
+            bins=30,
+            alpha=0.5,
+            density=True,
+            label=f"{name} (sig)",
+            histtype="stepfilled",
+        )
+        ax.hist(
+            s[labels != i],
+            bins=30,
+            alpha=0.3,
+            density=True,
+            label=f"{name} (bkg)",
+            histtype="step",
+            linestyle="--",
+        )
     ax.set(xlabel="Score", ylabel="Density", title="Score Distributions")
-    ax.legend(fontsize=7); ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=7)
+    ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
     plots_dir = os.path.join(save_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
     path = os.path.join(plots_dir, "classification_evaluation.png")
-    plt.savefig(path, dpi=150); plt.close()
+    plt.savefig(path, dpi=150)
+    plt.close()
     print(f"  Saved classification plots to {path}")
 
 
@@ -567,8 +614,10 @@ def plot_regression(
 
     with torch.no_grad():
         for batch in test_loader:
-            bd = {k: v.to(device) if isinstance(v, torch.Tensor) else v
-                  for k, v in batch.items()}
+            bd = {
+                k: v.to(device) if isinstance(v, torch.Tensor) else v
+                for k, v in batch.items()
+            }
             out = model(bd)
             all_preds.append(out.squeeze().cpu().numpy())
             all_targets.append(batch["_label_"].numpy())
@@ -584,38 +633,51 @@ def plot_regression(
     if history.get("val_loss"):
         ax.plot(history["val_loss"], label="Val Loss")
     ax.set(xlabel="Epoch", ylabel="Loss (MSE)", title="Training History")
-    ax.legend(); ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
 
     ax = axes[0, 1]
     ax.scatter(targets, preds, alpha=0.3, s=10)
     lims = [min(targets.min(), preds.min()), max(targets.max(), preds.max())]
     ax.plot(lims, lims, "r--", label="y=x")
     ax.set(xlabel="True [GeV]", ylabel="Predicted [GeV]", title="Pred vs True")
-    ax.legend(); ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
 
     ax = axes[1, 0]
     ax.hist(residuals, bins=50, alpha=0.7, color="steelblue", edgecolor="black")
     ax.axvline(0, color="red", linestyle="--")
-    ax.set(xlabel="Residual [GeV]", ylabel="Count",
-           title=f"Residuals (bias={np.mean(residuals):.3f}, "
-                 f"res={np.std(residuals):.3f})")
+    ax.set(
+        xlabel="Residual [GeV]",
+        ylabel="Count",
+        title=f"Residuals (bias={np.mean(residuals):.3f}, res={np.std(residuals):.3f})",
+    )
     ax.grid(True, alpha=0.3)
 
     ax = axes[1, 1]
     unique_e = sorted(np.unique(targets))
     res_vals = [np.std(preds[targets == e] - e) for e in unique_e]
-    ax.bar(range(len(unique_e)), res_vals,
-           tick_label=[f"{e:.0f}" for e in unique_e],
-           alpha=0.7, color="steelblue", edgecolor="black")
-    ax.set(xlabel="True Energy [GeV]", ylabel="Resolution [GeV]",
-           title="Resolution vs Energy")
+    ax.bar(
+        range(len(unique_e)),
+        res_vals,
+        tick_label=[f"{e:.0f}" for e in unique_e],
+        alpha=0.7,
+        color="steelblue",
+        edgecolor="black",
+    )
+    ax.set(
+        xlabel="True Energy [GeV]",
+        ylabel="Resolution [GeV]",
+        title="Resolution vs Energy",
+    )
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
     plots_dir = os.path.join(save_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
     path = os.path.join(plots_dir, "regression_evaluation.png")
-    plt.savefig(path, dpi=150); plt.close()
+    plt.savefig(path, dpi=150)
+    plt.close()
     print(f"  Saved regression plots to {path}")
 
 
@@ -641,13 +703,15 @@ def plot_xgboost_importance(
     plots_dir = os.path.join(save_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
     path = os.path.join(plots_dir, "xgboost_feature_importance.png")
-    plt.savefig(path, dpi=150); plt.close()
+    plt.savefig(path, dpi=150)
+    plt.close()
     print(f"  Saved feature importance plot to {path}")
 
 
 # ═════════════════════════════════════════════════════════════════════════
 # ROOT output
 # ═════════════════════════════════════════════════════════════════════════
+
 
 def write_root_predictions(
     fg: FeatureGraph,
@@ -663,7 +727,7 @@ def write_root_predictions(
     Args:
         fg: Fitted FeatureGraph.
         root_files: ROOT file paths.
-        data_conf: Data config dict (for file_magic etc.).
+        data_conf: Data config dict (for treename, labels, etc.).
         clf_model: Classification model (optional).
         reg_model: Regression model (optional).
         save_dir: Output directory.
@@ -671,17 +735,45 @@ def write_root_predictions(
     """
     import uproot
 
+    # ── Resolve class names and class_labels from data config ──
+    labels_cfg = data_conf.get("labels", {}) or {}
+    class_names: list[str] | None = None
+    class_labels: dict[str, int] | None = None
+    source_files = root_files
+
+    if labels_cfg.get("classes"):
+        # Classes-based label system
+        classes_list = labels_cfg["classes"]
+        class_names = [c["name"] for c in classes_list]
+        class_labels = {}
+        class_all_files: list[str] = []
+        for idx, cls_def in enumerate(classes_list):
+            import glob as _glob
+
+            matched = sorted(_glob.glob(cls_def["files"]))
+            for fp in matched:
+                abs_fp = os.path.abspath(fp)
+                class_labels[abs_fp] = idx
+                class_all_files.append(abs_fp)
+        if class_all_files:
+            source_files = class_all_files
+
     common = dict(
         treename=data_conf.get("treename", "events"),
         branch_magic=data_conf.get("branch_magic"),
         file_magic=data_conf.get("file_magic"),
+        class_labels=class_labels,
     )
-    test_source = ROOTDataSource(DataSourceConfig(
-        file_paths=root_files, load_range=(0.85, 1.0), **common
-    ))
+    test_source = ROOTDataSource(
+        DataSourceConfig(file_paths=source_files, load_range=(0.85, 1.0), **common)
+    )
 
     source_branches = list(fg.get_source_branches())
-    extra = ["is_3GeV", "is_5GeV", "is_7GeV", "_IncidentEnergy"]
+    # Add regression target branch if a regression model is present
+    extra: list[str] = []
+    if reg_model is not None:
+        extra.append("_IncidentEnergy")
+
     raw = test_source.load_branches(source_branches + extra)
     batch = fg.build_batch(raw)
     event_tensor = batch["event"]
@@ -696,14 +788,22 @@ def write_root_predictions(
             out = clf_model({"event": event_tensor.to(device)})
             probs = torch.softmax(out, dim=1).cpu().numpy()
             labels = torch.argmax(out, dim=1).cpu().numpy()
-        output_data["clf_label"] = labels.astype(np.int32)
-        for i, cname in enumerate(CLASS_NAMES):
-            output_data[f"score_{cname.replace(' ', '_')}"] = probs[:, i].astype(np.float32)
+
+        output_data["is_label"] = labels.astype(np.int32)
+        names = (
+            class_names
+            if class_names
+            else [f"class_{i}" for i in range(probs.shape[1])]
+        )
+        for i, cname in enumerate(names):
+            output_data[f"label_score_{cname}"] = probs[:, i].astype(np.float32)
 
     if reg_model is not None:
         reg_model.eval()
         with torch.no_grad():
-            pred_e = reg_model({"event": event_tensor.to(device)}).squeeze().cpu().numpy()
+            pred_e = (
+                reg_model({"event": event_tensor.to(device)}).squeeze().cpu().numpy()
+            )
         true_e = ak.to_numpy(raw["_IncidentEnergy"]).astype(np.float32)
         output_data["true_IncidentEnergy"] = true_e
         output_data["pred_IncidentEnergy"] = pred_e.astype(np.float32)
@@ -715,13 +815,16 @@ def write_root_predictions(
     with uproot.recreate(out_path) as f:
         f["pred"] = output_data
 
-    print(f"  ROOT predictions written to {out_path} "
-          f"({len(event_tensor)} events, {len(output_data)} branches)")
+    print(
+        f"  ROOT predictions written to {out_path} "
+        f"({len(event_tensor)} events, {len(output_data)} branches)"
+    )
 
 
 # ═════════════════════════════════════════════════════════════════════════
 # MLflow logging
 # ═════════════════════════════════════════════════════════════════════════
+
 
 def log_to_mlflow(
     experiment_name: str,
@@ -759,13 +862,13 @@ def log_to_mlflow(
                 fpath = os.path.join(artifacts_dir, fname)
                 if os.path.isfile(fpath):
                     mlflow.log_artifact(fpath)
-        print(f"  MLflow: logged to experiment='{experiment_name}', "
-              f"run='{run_name}'")
+        print(f"  MLflow: logged to experiment='{experiment_name}', run='{run_name}'")
 
 
 # ═════════════════════════════════════════════════════════════════════════
 # Experiment runners
 # ═════════════════════════════════════════════════════════════════════════
+
 
 def run_experiment(
     task_type: str,
@@ -791,8 +894,8 @@ def run_experiment(
         Dict of test metrics.
     """
     # Naming.
-    experiment_name = f"{task_type}_{model_type}_edm4hep"
-    run_name = f"{model_type}_{timestamp()}_run{run_index}"
+    experiment_name = f"{task_type}_{model_type}"
+    run_name = f"{model_type}_{timestamp()}"
     save_dir = os.path.join(
         pipeline_cfg.get("output", {}).get("base_dir", "outputs/edm4hep"),
         f"{task_type}_{model_type}",
@@ -811,6 +914,11 @@ def run_experiment(
     with open(data_config_path) as f:
         data_conf = yaml.safe_load(f)
     data_config = DataConfig.load(data_config_path)
+
+    # Determine number of classes from data config or global fallback.
+    num_classes = (
+        len(data_config.class_names) if data_config.class_names else NUM_CLASSES
+    )
 
     # Training settings.
     train_cfg = pipeline_cfg.get("training", {})
@@ -836,7 +944,11 @@ def run_experiment(
     if model_type == "torch":
         # Build data loaders.
         train_loader, val_loader, test_loader = build_dataloaders(
-            data_config, fg, train_src, val_src, test_src,
+            data_config,
+            fg,
+            train_src,
+            val_src,
+            test_src,
             batch_size=batch_size,
         )
 
@@ -846,7 +958,7 @@ def run_experiment(
             model = MLPClassifier(
                 event_input_dim=num_features,
                 hidden_dims=model_cfg.get("hidden_dims", [128, 64, 32]),
-                num_classes=NUM_CLASSES,
+                num_classes=num_classes,
                 dropout=model_cfg.get("dropout", 0.1),
                 activation=model_cfg.get("activation", "relu"),
                 batch_norm=model_cfg.get("batch_norm", True),
@@ -863,23 +975,42 @@ def run_experiment(
                 embed_dim=model_cfg.get("embed_dim", 64),
             )
 
-        print(f"  Model: {model.__class__.__name__} "
-              f"(params={sum(p.numel() for p in model.parameters()):,})")
+        print(
+            f"  Model: {model.__class__.__name__} "
+            f"(params={sum(p.numel() for p in model.parameters()):,})"
+        )
 
         result, metrics = train_torch_model(
-            model, train_loader, val_loader, test_loader,
-            task_type, num_epochs, lr, save_dir,
+            model,
+            train_loader,
+            val_loader,
+            test_loader,
+            task_type,
+            num_epochs,
+            lr,
+            save_dir,
         )
 
         # Plots.
         if task_type == "classification":
-            plot_classification(model, test_loader, result["history"], save_dir)
+            plot_classification(
+                model,
+                test_loader,
+                result["history"],
+                save_dir,
+                class_names=data_config.class_names,
+            )
         else:
             plot_regression(model, test_loader, result["history"], save_dir)
 
     elif model_type == "xgboost":
         xgb_model, metrics = train_xgboost(
-            fg, root_files, data_conf, task_type, seed=seed, save_dir=save_dir,
+            fg,
+            root_files,
+            data_conf,
+            task_type,
+            seed=seed,
+            save_dir=save_dir,
         )
         plot_xgboost_importance(xgb_model, fg, save_dir, task_type)
 
@@ -920,6 +1051,7 @@ def run_experiment(
 # ═════════════════════════════════════════════════════════════════════════
 # Inference-only mode
 # ═════════════════════════════════════════════════════════════════════════
+
 
 def run_inference(
     task_type: str,
@@ -995,6 +1127,7 @@ def run_inference(
 # Main
 # ═════════════════════════════════════════════════════════════════════════
 
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     p = argparse.ArgumentParser(
@@ -1002,32 +1135,40 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument(
-        "--task", choices=["classification", "regression"],
+        "--task",
+        choices=["classification", "regression"],
         help="Task type (required unless --all is used).",
     )
     p.add_argument(
-        "--model", choices=["torch", "xgboost"],
+        "--model",
+        choices=["torch", "xgboost"],
         help="Model type (required unless --all is used).",
     )
     p.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Run all 4 experiment types (clf×torch, clf×xgb, reg×torch, reg×xgb), "
-             "each with --runs runs.",
+        "each with --runs runs.",
     )
     p.add_argument(
-        "--runs", type=int, default=2,
+        "--runs",
+        type=int,
+        default=2,
         help="Number of runs per experiment (default: 2).",
     )
     p.add_argument(
-        "--device", choices=["cuda", "mps", "cpu"],
+        "--device",
+        choices=["cuda", "mps", "cpu"],
         help="Force a specific device (default: auto-detect).",
     )
     p.add_argument(
-        "--data-dir", default=DATA_DIR,
+        "--data-dir",
+        default=DATA_DIR,
         help="ROOT file directory or glob pattern (default: testdata).",
     )
     p.add_argument(
-        "--predict-only", action="store_true",
+        "--predict-only",
+        action="store_true",
         help="Inference-only mode (requires --model-path).",
     )
     p.add_argument(
@@ -1035,7 +1176,8 @@ def parse_args() -> argparse.Namespace:
         help="Path to a trained model .pt file (for --predict-only).",
     )
     p.add_argument(
-        "--config", default=PIPELINE_CONFIG,
+        "--config",
+        default=PIPELINE_CONFIG,
         help="Pipeline config YAML path.",
     )
     return p.parse_args()
@@ -1073,7 +1215,8 @@ def main() -> None:
     with open(clf_data_conf_path) as f:
         clf_data_conf = yaml.safe_load(f)
     train_src, _, _ = create_data_sources(
-        root_files, clf_data_conf,
+        root_files,
+        clf_data_conf,
         train_range=tuple(pipeline_cfg.get("data", {}).get("train_range", [0.0, 0.7])),
     )
     fit_feature_graph(fg, train_src)
@@ -1107,13 +1250,19 @@ def main() -> None:
             key = f"{task_type}_{model_type}_run{run_idx}"
             try:
                 metrics = run_experiment(
-                    task_type, model_type, fg, root_files,
-                    pipeline_cfg, device, run_index=run_idx,
+                    task_type,
+                    model_type,
+                    fg,
+                    root_files,
+                    pipeline_cfg,
+                    device,
+                    run_index=run_idx,
                 )
                 all_metrics[key] = metrics
             except Exception as e:
                 print(f"\n  ERROR in {key}: {e}")
                 import traceback
+
                 traceback.print_exc()
                 all_metrics[key] = {"error": str(e)}
 
@@ -1122,7 +1271,9 @@ def main() -> None:
     if output_cfg.get("export_root", True):
         # Try to load best models for ROOT export.
         base_dir = output_cfg.get("base_dir", "outputs/edm4hep")
-        clf_pt = os.path.join(base_dir, "classification_torch", "models", "best_model.pt")
+        clf_pt = os.path.join(
+            base_dir, "classification_torch", "models", "best_model.pt"
+        )
         reg_pt = os.path.join(base_dir, "regression_torch", "models", "best_model.pt")
 
         clf_model_for_root = None
@@ -1162,9 +1313,13 @@ def main() -> None:
             with open(CLF_DATA_CONFIG) as f:
                 data_conf_for_root = yaml.safe_load(f)
             write_root_predictions(
-                fg, root_files, data_conf_for_root,
-                clf_model_for_root, reg_model_for_root,
-                base_dir, device,
+                fg,
+                root_files,
+                data_conf_for_root,
+                clf_model_for_root,
+                reg_model_for_root,
+                base_dir,
+                device,
             )
 
     # ─── Summary ────────────────────────────────────────────────────
@@ -1175,7 +1330,9 @@ def main() -> None:
     print(f"  Total time: {elapsed:.1f}s")
     print(f"  Device: {device}")
     for key, m in all_metrics.items():
-        summary = ", ".join(f"{k}={v:.4f}" for k, v in m.items() if isinstance(v, float))
+        summary = ", ".join(
+            f"{k}={v:.4f}" for k, v in m.items() if isinstance(v, float)
+        )
         print(f"  {key}: {summary}")
     print()
 

@@ -93,9 +93,19 @@ class PipelineOrchestrator:
         if not data_source_path:
             raise ValueError("data.source_path must be specified in pipeline.yaml")
 
-        treename = self.config.get("data", {}).get("treename", "tree")
-        load_range = self.config.get("data", {}).get("load_range")
-        val_split = self.config.get("data", {}).get("val_split", 0.0)
+        treename = self.config.get("data", {}).get("treename", "events")
+
+        # 优先读取 train_range/val_range/test_range（与 pipeline_edm4hep.yaml 一致），
+        # 回退到旧的 load_range + val_split 以保持向后兼容
+        data_section = self.config.get("data", {})
+        train_range_cfg = data_section.get("train_range")
+        val_range_cfg = data_section.get("val_range")
+        test_range_cfg = data_section.get("test_range")
+        has_new_range_style = train_range_cfg is not None
+
+        # 旧式兼容
+        load_range = data_section.get("load_range")
+        val_split = data_section.get("val_split", 0.0)
 
         # 解析字典格式的数据路径（类似 weaver 的 to_filelist）
         # 如果 data_source_path 是字典格式（包含 label:path），会自动生成 file_magic 和 labels
@@ -183,8 +193,15 @@ class PipelineOrchestrator:
                     self.data_config.label_names = ("_label_",)
                     # 构建标签表达式
                     label_exprs = [f"ak.to_numpy({k})" for k in auto_labels]
-                    self.data_config.register("_label_", f"np.argmax(np.stack([{','.join(label_exprs)}], axis=1), axis=1)")
-                    self.data_config.register("_labelcheck_", f"np.sum(np.stack([{','.join(label_exprs)}], axis=1), axis=1)", "train")
+                    self.data_config.register(
+                        "_label_",
+                        f"np.argmax(np.stack([{','.join(label_exprs)}], axis=1), axis=1)",
+                    )
+                    self.data_config.register(
+                        "_labelcheck_",
+                        f"np.sum(np.stack([{','.join(label_exprs)}], axis=1), axis=1)",
+                        "train",
+                    )
                     logger.info(f"Auto-generated labels from data paths: {auto_labels}")
 
         # 使用解析后的文件列表
@@ -192,37 +209,69 @@ class PipelineOrchestrator:
             data_source_path = all_files
 
         # 处理验证集分割
-        train_range = load_range
-        val_range = None
+        if has_new_range_style:
+            # 新式：直接使用 train_range / val_range / test_range
+            train_range = train_range_cfg
+            val_range = val_range_cfg
+            # test_range_cfg 暂存，由调用方（如 run_pipeline.py）按需使用
+            logger.info(f"Using new-style ranges: train={train_range}, val={val_range}, test={test_range_cfg}")
+        else:
+            # 旧式：load_range + val_split
+            train_range = load_range
+            val_range = None
 
-        if val_split > 0:
-            if load_range:
-                start, end = load_range
-                total = end - start
-                split_point = int(start + total * (1 - val_split))
-                train_range = [start, split_point]
-                val_range = [split_point, end]
-                logger.info(f"Splitting data into train range {train_range} and val range {val_range} (split={val_split})")
-            else:
-                # P1-2 修复：如果 val_split 指定但 load_range 缺失，抛出错误
-                # 这是为了防止数据泄漏：验证集不能是训练集的副本
-                raise ValueError(
-                    "val_split specified but load_range is missing. "
-                    "Cannot safely split data without knowing the total data size. "
-                    "To fix this, either:\n"
-                    "  1. Specify load_range in data config (e.g., [0.0, 1.0] for all data)\n"
-                    "  2. Use separate data files for training and validation\n"
-                    "  3. Set val_split=0.0 to disable validation split"
-                )
+            if val_split > 0:
+                if load_range:
+                    start, end = load_range
+                    total = end - start
+                    split_point = int(start + total * (1 - val_split))
+                    train_range = [start, split_point]
+                    val_range = [split_point, end]
+                    logger.info(f"Splitting data into train range {train_range} and val range {val_range} (split={val_split})")
+                else:
+                    raise ValueError(
+                        "val_split specified but load_range is missing. "
+                        "Cannot safely split data without knowing the total data size. "
+                        "To fix this, either:\n"
+                        "  1. Specify load_range in data config (e.g., [0.0, 1.0] for all data)\n"
+                        "  2. Use separate data files for training and validation\n"
+                        "  3. Set val_split=0.0 to disable validation split"
+                    )
+
+        # ---------------------------------------------------------------
+        # Classes-based label system: resolve file globs → class_labels
+        # ---------------------------------------------------------------
+        class_labels = None
+        if self.data_config.class_names is not None:
+            class_labels = {}
+            class_all_files = []
+            for idx, (name, pattern) in enumerate(zip(self.data_config.class_names, self.data_config.class_files)):
+                matched = sorted(glob.glob(pattern))
+                if not matched:
+                    raise ValueError(f"No files matched for class '{name}' with pattern '{pattern}'")
+                for fp in matched:
+                    abs_fp = os.path.abspath(fp)
+                    if abs_fp in class_labels:
+                        raise ValueError(f"File '{fp}' matches multiple classes. " f"Each file must belong to exactly one class.")
+                    class_labels[abs_fp] = idx
+                    class_all_files.append(abs_fp)
+                logger.info(f"Class '{name}' (index {idx}): {len(matched)} file(s)")
+
+            # Override data_source_path — files come from classes definitions
+            data_source_path = class_all_files
+            logger.info(f"Classes-based labels: {len(class_labels)} files across " f"{len(self.data_config.class_names)} classes")
 
         data_source = DataSourceFactory.create(
             data_source_path,
             treename=treename,
             load_range=train_range,
+            file_magic=self.data_config.file_magic,
+            class_labels=class_labels,
         )
 
         # 设置特征系统（必需）
-        feature_config_path = self.config.get("features", {}).get("config_path")
+        # 新式: data.features_config, 旧式 fallback: features.config_path
+        feature_config_path = self.config.get("data", {}).get("features_config") or self.config.get("features", {}).get("config_path")
         if not feature_config_path:
             raise ValueError("features.config_path is required. Feature definitions must be in features.yaml via FeatureGraph.")
 
@@ -240,6 +289,10 @@ class PipelineOrchestrator:
             # 注意：我们需要加载 FeatureGraph 需要的所有原始分支
             # 为了简单起见，我们加载 DataConfig 中指定的所有训练分支
             load_branches = list(self.data_config.train_load_branches)
+            # Also include FeatureGraph source branches needed for fitting
+            if self.feature_graph is not None:
+                fg_branches = list(self.feature_graph.get_source_branches())
+                load_branches = list(set(load_branches + fg_branches))
 
             # 使用 data_source 的切片功能（如果支持）或加载后切片
             # 这里假设 load_branches 返回所有数据，我们只取前 fit_samples
@@ -262,13 +315,14 @@ class PipelineOrchestrator:
 
         # 创建验证数据集（如果有配置）
         val_dataset = None
-        # P1-2 修复：支持基于 range 的验证集分割
-        if val_split > 0 and val_range is not None:
+        if val_range is not None:
             # 创建验证集数据源（使用 val_range）
             val_data_source = DataSourceFactory.create(
                 data_source_path,
                 treename=treename,
                 load_range=val_range,
+                file_magic=self.data_config.file_magic,
+                class_labels=class_labels,
             )
 
             val_dataset = HEPDataset(
@@ -307,10 +361,17 @@ class PipelineOrchestrator:
 
         model_name = model_config.get("name")
         if not model_name:
-            raise ValueError("model.name must be specified in pipeline.yaml")
+            # 新式 YAML 无 model.name — 从 task_type 推断
+            task_type = self.get_train_config().get("task_type", "classification")
+            model_name = "mlp_classifier" if task_type == "classification" else "mlp_regressor"
+            logger.info(f"model.name not specified; inferred '{model_name}' from task_type='{task_type}'")
 
-        # 获取模型参数
+        # 获取模型参数: 优先使用 model.params（旧式），否则把 model 下除 name/params 外的
+        # 所有键当作模型参数（新式平铺写法）
         model_kwargs = model_config.get("params", {}).copy()
+        if not model_kwargs:
+            # 新式平铺：model 节下除 name/params 外的所有键视为模型参数
+            model_kwargs = {k: v for k, v in model_config.items() if k not in ("name", "params")}
 
         # 从 FeatureGraph.output_spec() 推断输入维度（统一使用新架构）
         if self.feature_graph is None:
@@ -369,10 +430,27 @@ class PipelineOrchestrator:
             logger.warning("embed_dim not specified. Using default value 64. " "Please specify embed_dim explicitly for better control.")
             model_kwargs["embed_dim"] = 64
 
+        # 自动推断 num_classes（分类任务）
+        task_type = self.get_train_config().get("task_type", "classification")
+        if task_type == "classification" and "num_classes" not in model_kwargs:
+            if hasattr(self, "data_config") and self.data_config is not None and self.data_config.class_names is not None:
+                num_classes = len(self.data_config.class_names)
+                model_kwargs["num_classes"] = num_classes
+                logger.info(f"Auto-inferred num_classes={num_classes} from " f"data_config.class_names={self.data_config.class_names}")
+            else:
+                logger.warning(
+                    "Classification task but num_classes not specified and " "data_config.class_names not available. Model will use its default."
+                )
+
         # 创建模型
         model = get_model(model_name, **model_kwargs)
 
-        self.model_config = model_config
+        # Normalize model_config to always have 'name' + 'params' structure
+        # (flat config style puts params at top level without a 'params' key)
+        self.model_config = {
+            "name": model_name,
+            "params": model_kwargs,
+        }
         logger.info(f"Model '{model_name}' created with params: {model_kwargs}")
 
         # 创建并验证 PipelineState
@@ -382,7 +460,7 @@ class PipelineOrchestrator:
             model_config=self.model_config,
             task_type=task_type,
             pipeline_config_path=str(self.pipeline_config_path),
-            feature_config_path=self.config.get("features", {}).get("config_path"),
+            feature_config_path=self.config.get("data", {}).get("features_config") or self.config.get("features", {}).get("config_path"),
             data_config_path=self.config.get("data", {}).get("config_path"),
         )
 
@@ -405,7 +483,8 @@ class PipelineOrchestrator:
         Returns:
             训练配置字典
         """
-        train_config = self.config.get("train", {})
+        # 新式: "training", 旧式 fallback: "train"
+        train_config = self.config.get("training", {}) or self.config.get("train", {})
         self.train_config = train_config
         return train_config
 

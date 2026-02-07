@@ -49,6 +49,7 @@ class DataSourceFactory:
             branch_magic=kwargs.get("branch_magic"),
             file_magic=kwargs.get("file_magic"),
             load_range=kwargs.get("load_range"),
+            class_labels=kwargs.get("class_labels"),
         )
 
         # 创建相应的数据源

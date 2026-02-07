@@ -153,6 +153,9 @@ conda activate bamboohepml  # 根据需要修改
         use_ray: bool = False,
         num_workers: int = 1,
         gpu_per_worker: int = 0,
+        task_type: Optional[str] = None,
+        model_type: Optional[str] = None,
+        run_index: int = 1,
         **kwargs,
     ) -> str:
         """提交训练任务到 SLURM。"""
@@ -179,6 +182,13 @@ conda activate bamboohepml  # 根据需要修改
             cmd_parts.append(f"--num-workers {num_workers}")
             cmd_parts.append(f"--gpu-per-worker {gpu_per_worker}")
 
+        # Forward multi-experiment params as single --task/--model
+        # (the CLI loop already resolved --all/--runs into individual calls)
+        if task_type:
+            cmd_parts.append(f"--task {task_type}")
+        if model_type:
+            cmd_parts.append(f"--model {model_type}")
+
         cmd_parts.append("--scheduler local")  # 在 SLURM 作业中使用 local scheduler
 
         command = " ".join(cmd_parts)
@@ -187,7 +197,15 @@ conda activate bamboohepml  # 根据需要修改
         gpus = gpu_per_worker * num_workers if use_ray else (gpu_per_worker or self.default_gpus)
 
         # 生成作业名称
-        job_name = f"train_{experiment_name or 'default'}"
+        name_parts = ["train"]
+        if task_type:
+            name_parts.append(task_type)
+        if model_type:
+            name_parts.append(model_type)
+        name_parts.append(experiment_name or "default")
+        if run_index > 1:
+            name_parts.append(f"run{run_index}")
+        job_name = "_".join(name_parts)
 
         # 生成 sbatch 脚本
         script = self._generate_sbatch_script(

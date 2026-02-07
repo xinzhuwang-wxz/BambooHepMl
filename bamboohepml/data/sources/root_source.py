@@ -65,13 +65,23 @@ class ROOTDataSource(DataSource):
                     file_magic_vars: set[str] = set()
                     if self.config.file_magic is not None:
                         file_magic_vars = set(self.config.file_magic.keys())
-                    real_branches = [b for b in branches if b not in file_magic_vars]
+
+                    # When using class_labels, _label_ is injected by us —
+                    # don't ask uproot to load it from the file.
+                    injected_vars: set[str] = set()
+                    if self.config.class_labels is not None:
+                        injected_vars.add("_label_")
+
+                    real_branches = [b for b in branches if b not in file_magic_vars and b not in injected_vars]
 
                     # Load real branches.
                     outputs = self._load_real_branches(tree, real_branches, start, stop)
 
                     # Attach file_magic virtual variables.
                     outputs = self._attach_file_magic(outputs, filepath, file_magic_vars)
+
+                    # Attach class labels (new classes-based label system).
+                    outputs = self._attach_class_labels(outputs, filepath)
 
                     # Clean up dummy field if present.
                     if "__dummy__" in outputs.fields:
@@ -213,6 +223,37 @@ class ROOTDataSource(DataSource):
                     break
             outputs[var] = matched_value
 
+        return outputs
+
+    def _attach_class_labels(
+        self,
+        outputs: ak.Array,
+        filepath: str,
+    ) -> ak.Array:
+        """Inject ``_label_`` field based on the classes-based label mapping.
+
+        ``class_labels`` maps *resolved* file paths to integer class indices.
+        We normalise both sides to absolute paths so that relative vs absolute
+        differences don't matter.
+        """
+        if self.config.class_labels is None:
+            return outputs
+
+        import os
+
+        abs_fp = os.path.abspath(filepath)
+        label_idx: int | None = None
+
+        for mapped_path, idx in self.config.class_labels.items():
+            if os.path.abspath(mapped_path) == abs_fp:
+                label_idx = idx
+                break
+
+        if label_idx is None:
+            _logger.warning(f"File {filepath} not found in class_labels mapping. " f"Skipping _label_ injection for this file.")
+            return outputs
+
+        outputs["_label_"] = label_idx
         return outputs
 
     @staticmethod

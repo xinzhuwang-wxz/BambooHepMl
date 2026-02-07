@@ -158,14 +158,23 @@ def export_task(
     else:
         export_input = tuple(dummy_inputs)
 
-    torch.onnx.export(
-        wrapped_model,
-        export_input,
-        str(output_path),
+    export_kwargs = dict(
         input_names=input_names,
         output_names=["output"],
         opset_version=opset_version,
         dynamic_axes=dynamic_axes,
+    )
+    # dynamo kwarg only exists in PyTorch >= 2.6; skip for older versions
+    import inspect
+
+    if "dynamo" in inspect.signature(torch.onnx.export).parameters:
+        export_kwargs["dynamo"] = False
+
+    torch.onnx.export(
+        wrapped_model,
+        export_input,
+        str(output_path),
+        **export_kwargs,
     )
 
     logger.info(f"ONNX model exported to {output_path}")

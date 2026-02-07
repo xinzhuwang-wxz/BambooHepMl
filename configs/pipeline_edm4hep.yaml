@@ -1,6 +1,6 @@
 # Unified pipeline configuration for EDM4hep experiments.
 # Task type is selected at runtime; this file provides shared defaults.
-# Experiment naming: {task_type}_{model_type}_edm4hep
+# Experiment naming: {task_type}_{model_type}
 # Run naming: {model_type}_{timestamp}
 
 data:

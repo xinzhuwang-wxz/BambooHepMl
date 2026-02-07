@@ -68,7 +68,12 @@ def test_full_pipeline_flow():
         print("\n2. [MODEL] 创建模型...")
         input_dim = 10
         num_classes = 2
-        model = get_model("mlp_classifier", input_dim=input_dim, hidden_dims=[32, 16], num_classes=num_classes)
+        model = get_model(
+            "mlp_classifier",
+            event_input_dim=input_dim,
+            hidden_dims=[32, 16],
+            num_classes=num_classes,
+        )
         print(f"   ✓ 模型创建成功: input_dim={input_dim}, num_classes={num_classes}")
 
         # ========== 3. TRAIN: 训练模型 ==========
@@ -130,7 +135,11 @@ def test_full_pipeline_flow():
             task_type="classification",
             model_config={
                 "name": "mlp_classifier",
-                "params": {"input_dim": input_dim, "hidden_dims": [32, 16], "num_classes": num_classes},
+                "params": {
+                    "event_input_dim": input_dim,
+                    "hidden_dims": [32, 16],
+                    "num_classes": num_classes,
+                },
             },
             input_dim=input_dim,
             input_key="event",
@@ -162,7 +171,12 @@ def test_full_pipeline_flow():
         # ========== 8. SERVE: 使用模型进行推理 ==========
         print("\n8. [SERVE] 使用模型进行推理...")
         # 重新加载模型
-        model_reloaded = get_model("mlp_classifier", input_dim=input_dim, hidden_dims=[32, 16], num_classes=num_classes)
+        model_reloaded = get_model(
+            "mlp_classifier",
+            event_input_dim=input_dim,
+            hidden_dims=[32, 16],
+            num_classes=num_classes,
+        )
         model_reloaded.load_state_dict(torch.load(model_path))
         model_reloaded.eval()
 
@@ -191,9 +205,9 @@ def test_full_pipeline_flow():
         model.eval()
         model_reloaded.eval()
         with torch.no_grad():
-            # 模型 forward 方法期望 "features" 键
-            output1 = model({"features": test_input})
-            output2 = model_reloaded({"features": test_input})
+            # 模型 forward 方法期望 "event" 键（新架构）
+            output1 = model({"event": test_input})
+            output2 = model_reloaded({"event": test_input})
             assert torch.allclose(output1, output2, atol=1e-6)
         print("   ✓ 端到端一致性验证成功")
 
@@ -217,7 +231,12 @@ def test_metadata_driven_export():
         print("\n1. 创建并训练模型...")
         input_dim = 10
         num_classes = 2
-        model = get_model("mlp_classifier", input_dim=input_dim, hidden_dims=[32, 16], num_classes=num_classes)
+        model = get_model(
+            "mlp_classifier",
+            event_input_dim=input_dim,
+            hidden_dims=[32, 16],
+            num_classes=num_classes,
+        )
         train_dataset = _create_dummy_data(num_samples=100, input_dim=input_dim)
         train_loader = DataLoader(train_dataset, batch_size=32, collate_fn=_collate_fn)
         trainer = Trainer(
@@ -226,6 +245,7 @@ def test_metadata_driven_export():
             loss_fn=torch.nn.CrossEntropyLoss(),
             optimizer=torch.optim.Adam(model.parameters(), lr=0.001),
             device=torch.device("cpu"),
+            task_type="classification",
         )
         trainer.fit(num_epochs=1)
 
@@ -245,7 +265,11 @@ def test_metadata_driven_export():
             task_type="classification",
             model_config={
                 "name": "mlp_classifier",
-                "params": {"input_dim": input_dim, "hidden_dims": [32, 16], "num_classes": num_classes},
+                "params": {
+                    "event_input_dim": input_dim,
+                    "hidden_dims": [32, 16],
+                    "num_classes": num_classes,
+                },
             },
             input_dim=input_dim,
             input_key="event",
@@ -296,11 +320,11 @@ def test_featuregraph_integration():
     assert batch["event"].shape == (batch_size, input_dim)
 
     # 创建模型并验证可以处理这种格式
-    model = get_model("mlp_classifier", input_dim=input_dim, hidden_dims=[32, 16], num_classes=2)
+    model = get_model("mlp_classifier", event_input_dim=input_dim, hidden_dims=[32, 16], num_classes=2)
     model.eval()
     with torch.no_grad():
-        # 模型 forward 方法期望 "features" 键，需要从 batch 中提取 event 并转换
-        output = model({"features": batch["event"]})
+        # 模型 forward 方法期望 "event" 键（新架构）
+        output = model({"event": batch["event"]})
         assert output.shape == (batch_size, 2)
 
     print("   ✓ FeatureGraph 输出格式与模型输入一致")

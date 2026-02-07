@@ -103,14 +103,32 @@ class DataConfig:
         # 标签配置
         self.label_type = opts["labels"].get("type") if opts["labels"] else None
         self.label_value = opts["labels"].get("value") if opts["labels"] else None
+        self.label_classes = opts["labels"].get("classes") if opts["labels"] else None
 
-        if self.label_type and self.label_value:
+        # class_names: ordered list of class names (e.g. ["pi_3GeV", "pi_5GeV", "pi_7GeV"])
+        # class_files: list of glob patterns per class, aligned with class_names
+        self.class_names = None
+        self.class_files = None
+
+        if self.label_type and self.label_classes:
+            # New classes-based label: each file = one class, _label_ is int index
+            assert self.label_type == "simple", "labels.classes is only supported for labels.type=simple (classification)"
+            assert isinstance(self.label_classes, list), "labels.classes must be a list"
+            self.class_names = [c["name"] for c in self.label_classes]
+            self.class_files = [c["files"] for c in self.label_classes]
+            self.label_names = ("_label_",)
+            self.label_value = None  # not used in classes mode
+            # No var_funcs needed — _label_ is injected directly by DataSource
+        elif self.label_type and self.label_value:
             if self.label_type == "simple":
                 assert isinstance(self.label_value, list)
                 self.label_names = ("_label_",)
                 # 构建标签表达式（用于从原始分支计算标签）
                 label_exprs = ["ak.to_numpy(%s)" % k for k in self.label_value]
-                self.register("_label_", "np.argmax(np.stack([%s], axis=1), axis=1)" % (",".join(label_exprs)))
+                self.register(
+                    "_label_",
+                    "np.argmax(np.stack([%s], axis=1), axis=1)" % (",".join(label_exprs)),
+                )
                 self.register("_labelcheck_", "np.sum(np.stack([%s], axis=1), axis=1)", "train")
             else:
                 self.label_names = tuple(self.label_value.keys())
@@ -125,7 +143,11 @@ class DataConfig:
             self.weight_name = "_weight_"
             self.use_precomputed_weights = opts["weights"].get("use_precomputed_weights", False)
             if self.use_precomputed_weights:
-                self.register(self.weight_name, "*".join(opts["weights"]["weight_branches"]), "train")
+                self.register(
+                    self.weight_name,
+                    "*".join(opts["weights"]["weight_branches"]),
+                    "train",
+                )
             else:
                 self.reweight_method = opts["weights"].get("reweight_method")
                 self.reweight_basewgt = opts["weights"].get("reweight_basewgt", None)
@@ -194,9 +216,12 @@ class DataConfig:
 
         # 解析依赖关系（用于确定 aux_branches，即需要计算的变量）
         func_vars = set(self.var_funcs.keys())
-        for load_branches, aux_branches in (self.train_load_branches, self.train_aux_branches), (
-            self.test_load_branches,
-            self.test_aux_branches,
+        for load_branches, aux_branches in (
+            (self.train_load_branches, self.train_aux_branches),
+            (
+                self.test_load_branches,
+                self.test_aux_branches,
+            ),
         ):
             while load_branches & func_vars:
                 for k in load_branches & func_vars:
@@ -258,7 +283,14 @@ class DataConfig:
             yaml.safe_dump(self.options, f, sort_keys=False, allow_unicode=True)
 
     @classmethod
-    def load(cls, fp, load_observers=True, load_reweight_info=True, extra_selection=None, extra_test_selection=None):
+    def load(
+        cls,
+        fp,
+        load_observers=True,
+        load_reweight_info=True,
+        extra_selection=None,
+        extra_test_selection=None,
+    ):
         """从 YAML 文件加载配置。
 
         Args:

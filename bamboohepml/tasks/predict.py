@@ -55,7 +55,8 @@ def predict_task(
 
     # 2. 设置数据（用于预测）
     logger.info("Setting up data system...")
-    dataset = orchestrator.setup_data()
+    train_dataset, val_dataset = orchestrator.setup_data()
+    dataset = train_dataset  # Use training dataset for prediction
     dataset.for_training = False  # 预测模式
     dataset.shuffle = False
 
@@ -201,34 +202,42 @@ def predict_task(
             # 保存为 ROOT 文件（类似 weaver）
             output_dict = {}
 
+            # Determine class names for branch naming.
+            # Priority: classes-based (class_names) > old-style (label_value list)
+            class_names = getattr(data_config, "class_names", None) if data_config else None
+
             # 添加预测结果
-            # 判断任务类型：如果输出维度 > 1，通常是分类任务；否则是回归任务
-            if len(all_predictions.shape) == 1 and (all_probabilities is not None and len(all_probabilities) > 0 and all_probabilities.shape[1] > 1):
-                # 分类任务：添加每个类别的分数
+            is_classification = (
+                len(all_predictions.shape) == 1 and all_probabilities is not None and len(all_probabilities) > 0 and all_probabilities.shape[1] > 1
+            )
+
+            if is_classification and class_names:
+                # ── Classes-based classification output ──
+                # is_label: predicted class index (int32)
+                output_dict["is_label"] = all_predictions.astype(np.int32)
+                # label_score_{name}: softmax probability per class
+                for idx, cname in enumerate(class_names):
+                    output_dict[f"label_score_{cname}"] = all_probabilities[:, idx].astype(np.float32)
+
+            elif is_classification:
                 if data_config and data_config.label_type == "simple" and data_config.label_value:
-                    # 多分类任务：为每个类别添加分数
+                    # Old-style classification with label_value list
                     for idx, label_name in enumerate(data_config.label_value):
-                        # 添加分数（概率或 logits）
                         if all_probabilities is not None and len(all_probabilities) > 0:
                             output_dict[f"score_{label_name}"] = all_probabilities[:, idx]
                         else:
-                            # 如果没有概率，使用预测结果生成 one-hot
                             output_dict[f"pred_{label_name}"] = all_predictions == idx
-
-                    # 添加预测类别索引
                     output_dict["prediction"] = all_predictions
-
-                    # 如果有标签，还原 one-hot 编码的标签
                     if len(all_labels) > 0:
                         label_key = list(all_labels.keys())[0]
                         for idx, label_name in enumerate(data_config.label_value):
                             output_dict[label_name] = all_labels[label_key] == idx
                 else:
-                    # 通用分类任务（类别名称未知）
-                    output_dict["prediction"] = all_predictions
+                    # Generic classification (class names unknown)
+                    output_dict["is_label"] = all_predictions.astype(np.int32)
                     if all_probabilities is not None and len(all_probabilities) > 0:
                         for idx in range(all_probabilities.shape[1]):
-                            output_dict[f"score_class_{idx}"] = all_probabilities[:, idx]
+                            output_dict[f"label_score_class_{idx}"] = all_probabilities[:, idx].astype(np.float32)
             else:
                 # 回归任务：输出单个连续值
                 output_dict["prediction"] = all_predictions
@@ -246,23 +255,41 @@ def predict_task(
 
         elif ext == ".parquet":
             # 保存为 Parquet 文件
-            output_dict = {"prediction": all_predictions}
-            if all_probabilities is not None and len(all_probabilities) > 0:
-                for idx in range(all_probabilities.shape[1]):
-                    output_dict[f"score_class_{idx}"] = all_probabilities[:, idx]
+            class_names = getattr(data_config, "class_names", None) if data_config else None
+            output_dict = {}
+            if class_names and all_probabilities is not None and len(all_probabilities) > 0:
+                output_dict["is_label"] = all_predictions.astype(np.int32)
+                for idx, cname in enumerate(class_names):
+                    output_dict[f"label_score_{cname}"] = all_probabilities[:, idx].astype(np.float32)
+            else:
+                output_dict["prediction"] = all_predictions
+                if all_probabilities is not None and len(all_probabilities) > 0:
+                    for idx in range(all_probabilities.shape[1]):
+                        output_dict[f"score_class_{idx}"] = all_probabilities[:, idx]
             output_dict.update(all_labels)
             output_dict.update(all_observers)
 
-            ak.to_parquet(ak.Array(output_dict), str(output_path), compression="LZ4", compression_level=4)
+            ak.to_parquet(
+                ak.Array(output_dict),
+                str(output_path),
+                compression="LZ4",
+                compression_level=4,
+            )
             logger.info(f"Predictions saved to Parquet file: {output_path}")
 
         else:
             # 默认保存为 JSON（向后兼容）
+            class_names = getattr(data_config, "class_names", None) if data_config else None
             results = []
             for i in range(len(all_predictions)):
-                result = {"prediction": int(all_predictions[i]) if all_predictions.dtype == np.int64 else float(all_predictions[i])}
-                if all_probabilities is not None and len(all_probabilities) > 0:
-                    result["probabilities"] = all_probabilities[i].tolist()
+                if class_names and all_probabilities is not None and len(all_probabilities) > 0:
+                    result = {"is_label": int(all_predictions[i])}
+                    for idx, cname in enumerate(class_names):
+                        result[f"label_score_{cname}"] = float(all_probabilities[i, idx])
+                else:
+                    result = {"prediction": int(all_predictions[i]) if all_predictions.dtype == np.int64 else float(all_predictions[i])}
+                    if all_probabilities is not None and len(all_probabilities) > 0:
+                        result["probabilities"] = all_probabilities[i].tolist()
                 # 添加标签（如果有）
                 for key, value in all_labels.items():
                     result[key] = int(value[i]) if value.dtype == np.int64 else float(value[i])

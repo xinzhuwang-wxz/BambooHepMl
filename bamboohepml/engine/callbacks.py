@@ -184,6 +184,7 @@ class MLflowCallback(Callback):
         self,
         experiment_name: str | None = None,
         tracking_uri: str | None = None,
+        run_name: str | None = None,
         log_config: bool = True,
         log_artifacts: bool = True,
         artifact_paths: list | None = None,
@@ -194,12 +195,14 @@ class MLflowCallback(Callback):
         Args:
             experiment_name: 实验名称
             tracking_uri: MLflow tracking URI（如果为 None，使用 config 中的）
+            run_name: MLflow run 名称（如果为 None，由 MLflow 自动生成）
             log_config: 是否自动记录配置
             log_artifacts: 是否自动保存 artifacts
             artifact_paths: 要保存的 artifact 路径列表（如果为 None，自动保存模型和配置）
         """
         self.experiment_name = experiment_name
         self.tracking_uri = tracking_uri
+        self.run_name = run_name
         self.log_config = log_config
         self.log_artifacts = log_artifacts
         self.artifact_paths = artifact_paths or []
@@ -236,7 +239,7 @@ class MLflowCallback(Callback):
                 self.mlflow.set_experiment(self.experiment_name)
 
             # 开始 run
-            self.mlflow.start_run()
+            self.mlflow.start_run(run_name=self.run_name)
             self.run_id = self.mlflow.active_run().info.run_id
             logger.info(f"MLflow run started: {self.run_id}")
 
