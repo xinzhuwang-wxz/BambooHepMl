@@ -122,6 +122,11 @@ class OperatorRegistry:
         self.register("delta_phi", self._delta_phi)
         self.register("delta_eta", lambda eta1, eta2: eta1 - eta2)
 
+        # Calorimeter / detector hit aggregation functions
+        self.register("energy_weighted_mean", self._energy_weighted_mean)
+        self.register("safe_sum", self._safe_sum)
+        self.register("where", lambda cond, x, y: ak.where(cond, x, y) if isinstance(cond, ak.Array) else np.where(cond, x, y))
+
     @staticmethod
     def _delta_r(eta1, phi1, eta2, phi2):
         """计算 ΔR = sqrt(Δη² + Δφ²)。"""
@@ -136,6 +141,50 @@ class OperatorRegistry:
         dphi = np.where(dphi > np.pi, dphi - 2 * np.pi, dphi)
         dphi = np.where(dphi < -np.pi, dphi + 2 * np.pi, dphi)
         return dphi
+
+    @staticmethod
+    def _energy_weighted_mean(values, weights):
+        """计算能量加权平均值：Σ(value·weight) / Σ(weight)。
+
+        对于 jagged arrays（每个 event 有不同数量的 hits），
+        沿 axis=-1 求和，得到 event-level 标量。
+        当总权重为 0 时返回 0（没有 hit 的 event）。
+
+        Args:
+            values: 位置数组（如 x/y/z 坐标），jagged array
+            weights: 权重数组（如能量），jagged array
+
+        Returns:
+            event-level 标量数组
+        """
+        if isinstance(values, ak.Array):
+            sum_w = ak.sum(weights, axis=-1)
+            sum_wv = ak.sum(weights * values, axis=-1)
+            # 避免除以零：当 sum_w == 0 时返回 0
+            return ak.where(sum_w > 0, sum_wv / sum_w, 0.0)
+        else:
+            sum_w = np.sum(weights)
+            if sum_w == 0:
+                return 0.0
+            return np.sum(weights * values) / sum_w
+
+    @staticmethod
+    def _safe_sum(x):
+        """安全求和：处理空数组，返回 0 而不是 None。
+
+        Args:
+            x: 输入数组（可能是 jagged array）
+
+        Returns:
+            event-level 标量数组
+        """
+        if isinstance(x, ak.Array):
+            result = ak.sum(x, axis=-1)
+            # ak.sum 在空列表上返回 0（int），这通常没问题
+            # 但需要确保返回 float 类型
+            return ak.values_astype(result, "float32")
+        else:
+            return np.sum(x)
 
 
 class ExpressionEngine:

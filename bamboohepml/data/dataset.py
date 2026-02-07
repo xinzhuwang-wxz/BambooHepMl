@@ -188,27 +188,12 @@ class HEPDataset(IterableDataset):
         if load_branches:
             load_branches = {b for b in load_branches if b not in aux_branches}
 
-        # 2. 从 FeatureGraph 提取需要的数据源字段（始终执行，因为 FeatureGraph 是唯一特征源）
-        feature_graph_fields = set()
-        if self.feature_graph.expression_engine is not None:
-            for node_name, node in self.feature_graph.nodes.items():
-                feature_def = node.feature_def
-                # 从 expr 提取依赖
-                if "expr" in feature_def:
-                    expr = feature_def["expr"]
-                    try:
-                        deps = self.feature_graph.expression_engine.get_dependencies(expr)
-                        # 只保留不在特征图中的依赖（即原始数据字段）
-                        # 或者依赖是特征本身（自引用，意味着从源读取同名字段）
-                        for dep in deps:
-                            if dep not in self.feature_graph.nodes or dep == node_name:
-                                feature_graph_fields.add(dep)
-                    except Exception:
-                        pass
-                # 从 source 提取
-                source = feature_def.get("source")
-                if source and source not in self.feature_graph.nodes:
-                    feature_graph_fields.add(source)
+        # 2. Extract all ROOT-level branches required by FeatureGraph.
+        # Uses the consolidated get_source_branches() which covers:
+        #   - feature source paths
+        #   - reduction weight paths
+        #   - legacy expr dependencies
+        feature_graph_fields = self.feature_graph.get_source_branches()
 
         # 3. 确保 load_branches 是 set 类型并合并 FeatureGraph 字段
         if isinstance(load_branches, set):
@@ -240,8 +225,15 @@ class HEPDataset(IterableDataset):
                     # 没有 file_magic，说明这些字段在 ROOT 文件中，需要加载
                     load_branches |= set(self.data_config.label_value)
             elif isinstance(self.data_config.label_value, dict):
-                # complex label type: label_value is a dict
-                load_branches |= set(self.data_config.label_value.keys())
+                # Complex label type: label_value is a dict like
+                # {"_label_": "_IncidentEnergy"}.  The *values* are ROOT
+                # branch names that must always be loaded so that
+                # _build_new_variables can resolve the expression later.
+                for k, v in self.data_config.label_value.items():
+                    if isinstance(v, str):
+                        load_branches.add(v)
+                    else:
+                        load_branches.add(k)
 
         table = self.data_source.load_branches(list(load_branches))
 

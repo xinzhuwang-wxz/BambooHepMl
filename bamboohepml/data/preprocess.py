@@ -107,7 +107,13 @@ def _build_new_variables(table, funcs):
         if "%s" in str(expr):
             continue
         try:
-            table[var_name] = _eval_expr(expr, table)
+            # Direct field pass-through: if expr is just a field name
+            # present in the table, copy it directly (avoids _eval_expr
+            # filtering out names that start with underscore).
+            if isinstance(expr, str) and expr in table.fields:
+                table[var_name] = table[expr]
+            else:
+                table[var_name] = _eval_expr(expr, table)
         except Exception as e:
             from bamboohepml.data.logger import _logger
 

@@ -1,0 +1,18 @@
+# Data configuration for incident energy regression.
+# Target: IncidentEnergy (a scalar branch '_IncidentEnergy' in ROOT file).
+# Shares the same EDM4hep features as classification.
+
+treename: "events"
+
+labels:
+  type: complex
+  value:
+    _label_: "_IncidentEnergy"
+
+file_magic:
+  is_3GeV:
+    "3\\.00GeV": 1
+  is_5GeV:
+    "5\\.00GeV": 1
+  is_7GeV:
+    "7\\.00GeV": 1

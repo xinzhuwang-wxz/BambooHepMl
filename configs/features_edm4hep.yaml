@@ -1,0 +1,228 @@
+# =============================================================================
+# EDM4hep Feature Configuration — 23 event-level scalar features
+#
+# Design principles (R1 + R2):
+#
+#   Config-as-truth:  This file is the single authoritative definition of
+#     every feature used in the pipeline.  No external branch_magic alias
+#     table is needed — each feature carries its own full ROOT path.
+#
+#   Full ROOT paths (R1 — de-aliasing):  The `source` field contains the
+#     complete podio path inside the ROOT file, e.g.
+#       EcalBarrelCollection/EcalBarrelCollection.energy
+#     Short alias names (EcalBarrel_energy) are eliminated.
+#
+#   Structured reductions (R2 — reduction-as-config):  Instead of embedding
+#     reduction logic in `expr` strings like "safe_sum(EcalBarrel_energy)",
+#     each feature declares a `reduction` block:
+#       reduction:
+#         type: safe_sum            # or energy_weighted_mean
+#         weight: "..."             # only for weighted reductions
+#     The `expr` field is removed entirely; the framework interprets the
+#     `reduction` block to produce event-level scalars.
+#
+# All features originate from variable-length podio collections and are
+# reduced to event-level scalars:
+#   - Energy / EDep  ->  safe_sum per event
+#   - Position (x/y/z)  ->  energy_weighted_mean: sum(pos*w) / sum(w)
+# =============================================================================
+
+features:
+  event_level:
+    # =========================================================================
+    # Energy features (15) — reduction: safe_sum
+    # =========================================================================
+    - name: ecal_barrel_energy
+      source: "EcalBarrelCollection/EcalBarrelCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: hcal_barrel_energy
+      source: "HcalBarrelCollection/HcalBarrelCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: ecal_endcaps_energy
+      source: "EcalEndcapsCollection/EcalEndcapsCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: hcal_endcaps_energy
+      source: "HcalEndcapsCollection/HcalEndcapsCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: ecal_endcap_ring_energy
+      source: "EcalEndcapRingCollection/EcalEndcapRingCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: hcal_endcap_ring_energy
+      source: "HcalEndcapRingCollection/HcalEndcapRingCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: ecal_barrel_contrib_energy
+      source: "EcalBarrelContributionCollection/EcalBarrelContributionCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: hcal_barrel_contrib_energy
+      source: "HcalBarrelContributionCollection/HcalBarrelContributionCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: lumical_energy
+      source: "LumicalCollection/LumicalCollection.energy"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: tpc_edep
+      source: "TPCCollection/TPCCollection.EDep"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: tpc_lowpt_edep
+      source: "TPCLowPtCollection/TPCLowPtCollection.EDep"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: tpc_spacepoint_edep
+      source: "TPCSpacePointCollection/TPCSpacePointCollection.EDep"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: vxd_edep
+      source: "VXDCollection/VXDCollection.EDep"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: itk_barrel_edep
+      source: "ITKBarrelCollection/ITKBarrelCollection.EDep"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    - name: itk_endcap_edep
+      source: "ITKEndcapCollection/ITKEndcapCollection.EDep"
+      type: event
+      reduction:
+        type: safe_sum
+      normalize:
+        method: auto
+
+    # =========================================================================
+    # Position features (8) — reduction: energy_weighted_mean
+    # =========================================================================
+    - name: ecal_barrel_pos_x
+      source: "EcalBarrelCollection/EcalBarrelCollection.position.x"
+      type: event
+      reduction:
+        type: energy_weighted_mean
+        weight: "EcalBarrelCollection/EcalBarrelCollection.energy"
+      normalize:
+        method: auto
+
+    - name: ecal_barrel_pos_y
+      source: "EcalBarrelCollection/EcalBarrelCollection.position.y"
+      type: event
+      reduction:
+        type: energy_weighted_mean
+        weight: "EcalBarrelCollection/EcalBarrelCollection.energy"
+      normalize:
+        method: auto
+
+    - name: ecal_barrel_pos_z
+      source: "EcalBarrelCollection/EcalBarrelCollection.position.z"
+      type: event
+      reduction:
+        type: energy_weighted_mean
+        weight: "EcalBarrelCollection/EcalBarrelCollection.energy"
+      normalize:
+        method: auto
+
+    - name: hcal_barrel_pos_x
+      source: "HcalBarrelCollection/HcalBarrelCollection.position.x"
+      type: event
+      reduction:
+        type: energy_weighted_mean
+        weight: "HcalBarrelCollection/HcalBarrelCollection.energy"
+      normalize:
+        method: auto
+
+    - name: hcal_barrel_pos_y
+      source: "HcalBarrelCollection/HcalBarrelCollection.position.y"
+      type: event
+      reduction:
+        type: energy_weighted_mean
+        weight: "HcalBarrelCollection/HcalBarrelCollection.energy"
+      normalize:
+        method: auto
+
+    - name: ecal_endcaps_pos_z
+      source: "EcalEndcapsCollection/EcalEndcapsCollection.position.z"
+      type: event
+      reduction:
+        type: energy_weighted_mean
+        weight: "EcalEndcapsCollection/EcalEndcapsCollection.energy"
+      normalize:
+        method: auto
+
+    - name: hcal_endcaps_pos_z
+      source: "HcalEndcapsCollection/HcalEndcapsCollection.position.z"
+      type: event
+      reduction:
+        type: energy_weighted_mean
+        weight: "HcalEndcapsCollection/HcalEndcapsCollection.energy"
+      normalize:
+        method: auto
+
+    - name: tpc_pos_z
+      source: "TPCCollection/TPCCollection.position.z"
+      type: event
+      reduction:
+        type: energy_weighted_mean
+        weight: "TPCCollection/TPCCollection.EDep"
+      normalize:
+        method: auto

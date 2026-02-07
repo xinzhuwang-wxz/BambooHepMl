@@ -459,7 +459,16 @@ class FeatureGraph:
         return spec
 
     def compile(self):
-        """编译图为执行计划（优化执行效率）。"""
+        """Compile the graph into an execution plan for efficient evaluation.
+
+        The compiled plan is a list of tuples, one per feature in topological
+        order.  Each tuple contains:
+            (name, processor, expr_or_none, source_or_none, reduction_or_none)
+
+        The ``reduction`` dict (from config) is kept so that ``fit`` and
+        ``build_batch`` can apply the correct aggregation without falling
+        back to an ``expr`` string.
+        """
         if self._compiled_plan is not None:
             return
 
@@ -472,9 +481,11 @@ class FeatureGraph:
                 self.processors[name] = FeatureProcessor(node.feature_def)
             processor = self.processors[name]
 
-            # Determine source/expr
+            # Determine source / expr / reduction
             source = None
             expr = None
+            reduction = node.feature_def.get("reduction")
+
             if "expr" in node.feature_def:
                 expr = node.feature_def["expr"]
             else:
@@ -482,36 +493,97 @@ class FeatureGraph:
                 if isinstance(source, list):
                     source = source[0]
 
-            plan.append((name, processor, expr, source))
+            plan.append((name, processor, expr, source, reduction))
 
         self._compiled_plan = plan
         _logger.debug("FeatureGraph compiled execution plan.")
 
-    def fit(self, table: ak.Array):
-        """拟合所有特征处理器（计算统计量）。
+    def _apply_reduction(self, reduction: dict, source_value, context: dict):
+        """Apply a structured reduction to produce an event-level scalar.
+
+        Supported reduction types:
+            safe_sum             — sum along axis=-1, returning 0 for empty.
+            energy_weighted_mean — Σ(val·w)/Σ(w) along axis=-1.
+            sum / mean / max / min / std — standard aggregations.
 
         Args:
-            table: 用于拟合的数据表
+            reduction: Dict with at least ``type`` key, optionally ``weight``.
+            source_value: The raw (possibly jagged) array for the source branch.
+            context: Current evaluation context (needed to look up weight branch).
+
+        Returns:
+            Event-level scalar array (numpy or awkward 1-D).
+        """
+        rtype = reduction["type"]
+
+        if rtype == "safe_sum":
+            return self.expression_engine.registry.get("safe_sum")(source_value)
+        elif rtype == "energy_weighted_mean":
+            weight_key = reduction["weight"]
+            if weight_key not in context:
+                raise ValueError(
+                    f"Weight branch '{weight_key}' not found in context "
+                    f"for energy_weighted_mean reduction."
+                )
+            weight_value = context[weight_key]
+            return self.expression_engine.registry.get("energy_weighted_mean")(
+                source_value, weight_value
+            )
+        elif rtype == "sum":
+            return self.expression_engine.registry.get("sum")(source_value)
+        elif rtype == "mean":
+            return self.expression_engine.registry.get("mean")(source_value)
+        elif rtype == "max":
+            return self.expression_engine.registry.get("max")(source_value)
+        elif rtype == "min":
+            return self.expression_engine.registry.get("min")(source_value)
+        elif rtype == "std":
+            return self.expression_engine.registry.get("std")(source_value)
+        else:
+            raise ValueError(f"Unknown reduction type: '{rtype}'")
+
+    def fit(self, table: ak.Array):
+        """Fit all feature processors (compute normalisation statistics).
+
+        Features are evaluated in topological order.  For each feature the
+        framework first checks for a ``reduction`` block (R2 path), then
+        falls back to ``expr`` (legacy path), then to a plain ``source``
+        pass-through.
+
+        Args:
+            table: Training data table used to compute statistics.
         """
         self.compile()
 
-        # We need to compute features in order to fit subsequent features
-        # 使用局部 context，不依赖 self._cache
+        # Build a mutable evaluation context from the raw data fields.
         context = {k: table[k] for k in table.fields}
 
-        for name, processor, expr, source in self._compiled_plan:
+        for name, processor, expr, source, reduction in self._compiled_plan:
             try:
-                # 计算原始值
-                if expr:
+                # --- Compute the raw (unreduced) or reduced value ----------
+                if reduction is not None:
+                    # R2 path: structured reduction block
+                    if source not in context:
+                        raise ValueError(
+                            f"Source '{source}' not found for feature '{name}'"
+                        )
+                    raw_value = self._apply_reduction(
+                        reduction, context[source], context
+                    )
+                elif expr:
+                    # Legacy path: evaluate string expression
                     if self.expression_engine is None:
                         raise ValueError("Expression engine not set.")
                     raw_value = self.expression_engine.evaluate(expr, context)
                 else:
+                    # Direct source pass-through
                     if source not in context:
-                        raise ValueError(f"Source '{source}' not found for feature '{name}'")
+                        raise ValueError(
+                            f"Source '{source}' not found for feature '{name}'"
+                        )
                     raw_value = context[source]
 
-                # 拟合并转换
+                # Fit normaliser / clipper and process
                 processor.fit(raw_value)
                 processed_value = processor.process(raw_value)
                 context[name] = processed_value
@@ -560,18 +632,32 @@ class FeatureGraph:
         # 构建上下文（包含原始数据字段）
         context = {k: table[k] for k in table.fields}
 
-        # 按执行计划计算所有特征
-        for name, processor, expr, source in self._compiled_plan:
+        # Compute all features in topological order.
+        for name, processor, expr, source, reduction in self._compiled_plan:
             try:
-                # 计算原始值
-                if expr:
+                # --- Compute the raw value --------------------------------
+                if reduction is not None:
+                    # R2 path: structured reduction
+                    src_val = context.get(source)
+                    if src_val is None:
+                        raise ValueError(
+                            f"Source '{source}' not found in context "
+                            f"for feature '{name}'"
+                        )
+                    raw_value = self._apply_reduction(
+                        reduction, src_val, context
+                    )
+                elif expr:
                     if self.expression_engine is None:
                         raise ValueError("Expression engine not set.")
                     raw_value = self.expression_engine.evaluate(expr, context)
                 else:
                     raw_value = context.get(source)
                     if raw_value is None:
-                        raise ValueError(f"Source '{source}' not found in context for feature '{name}'")
+                        raise ValueError(
+                            f"Source '{source}' not found in context "
+                            f"for feature '{name}'"
+                        )
 
                 # 处理特征（使用已拟合的参数）
                 processed_value = processor.process(raw_value)
@@ -696,43 +782,80 @@ class FeatureGraph:
 
         return batch
 
-    @classmethod
-    def from_feature_defs(cls, features: dict[str, dict], expression_engine, enable_cache: bool = True) -> FeatureGraph:
-        """从特征定义构建图。
+    def get_source_branches(self) -> set[str]:
+        """Return all ROOT-level branch paths required by features.
 
-        Args:
-            features (Dict[str, dict]): 特征定义字典
-            expression_engine: 表达式引擎（用于提取依赖和 build_batch）
-            enable_cache (bool): 是否启用缓存。默认为 True。
+        Scans each feature definition for ``source`` and ``reduction.weight``
+        to build the complete set of branches that must be loaded from ROOT
+        files.  Only branches that are NOT themselves computed features are
+        returned.
 
         Returns:
-            FeatureGraph: 构建的图
+            Set of ROOT branch path strings.
+        """
+        branches: set[str] = set()
+        for _name, node in self.nodes.items():
+            fdef = node.feature_def
+            src = fdef.get("source")
+            if src and src not in self.nodes:
+                branches.add(src)
+            # Reduction weight branch
+            reduction = fdef.get("reduction")
+            if reduction:
+                weight = reduction.get("weight")
+                if weight and weight not in self.nodes:
+                    branches.add(weight)
+            # Legacy expr dependencies
+            if "expr" in fdef and self.expression_engine:
+                try:
+                    deps = self.expression_engine.get_dependencies(fdef["expr"])
+                    for dep in deps:
+                        if dep not in self.nodes:
+                            # External dependency — must be a raw branch.
+                            branches.add(dep)
+                        elif dep == _name and src is None:
+                            # Self-referencing pass-through (e.g. feature
+                            # "met" with expr "met"): the feature name IS
+                            # the raw branch that needs loading.
+                            branches.add(dep)
+                except Exception:
+                    pass
+        return branches
+
+    @classmethod
+    def from_feature_defs(cls, features: dict[str, dict], expression_engine, enable_cache: bool = True) -> FeatureGraph:
+        """Build a FeatureGraph from a dictionary of feature definitions.
+
+        Args:
+            features: Mapping of feature name → feature definition dict.
+            expression_engine: ExpressionEngine instance (for expr evaluation
+                and operator look-up).
+            enable_cache: Whether to enable value caching.  Default ``True``.
+
+        Returns:
+            Fully-wired FeatureGraph ready for ``compile`` / ``fit``.
         """
         graph = cls(expression_engine=expression_engine, enable_cache=enable_cache)
 
-        # 1. 创建所有节点
+        # 1. Create all nodes.
         for feature_name, feature_def in features.items():
             graph.add_node(feature_name, feature_def)
 
-        # 2. 解析依赖并添加边
+        # 2. Resolve inter-feature dependencies and add edges.
         for feature_name, feature_def in features.items():
-            dependencies = set()
+            dependencies: set[str] = set()
 
-            # 从 expr 提取依赖
+            # From expr (legacy path)
             if "expr" in feature_def:
                 expr = feature_def["expr"]
                 try:
                     deps = expression_engine.get_dependencies(expr)
-                    # 过滤：只保留在特征列表中的依赖（排除原始数据字段如 "Jet", "met"）
                     deps = {dep for dep in deps if dep in features}
                     dependencies.update(deps)
                 except Exception:
-                    # 如果表达式解析失败，跳过依赖提取
                     pass
 
-            # 从 source 提取依赖（如果是特征名）
-            # 注意：source 通常是原始数据字段（如 "Jet", "met"），不是特征名
-            # 所以不应该添加到依赖中，除非它确实是特征名
+            # From source (if it is itself a computed feature)
             source = feature_def.get("source", [])
             if isinstance(source, str):
                 if source in features:
@@ -742,23 +865,29 @@ class FeatureGraph:
                     if s in features:
                         dependencies.add(s)
 
-            # 显式依赖（只保留在特征列表中的依赖）
+            # From reduction.weight (if it is a computed feature)
+            reduction = feature_def.get("reduction")
+            if reduction:
+                weight = reduction.get("weight")
+                if weight and weight in features:
+                    dependencies.add(weight)
+
+            # Explicit dependencies
             if "dependencies" in feature_def:
                 explicit_deps = feature_def["dependencies"]
                 if isinstance(explicit_deps, list):
                     for dep in explicit_deps:
-                        if dep in features:  # 只添加在特征列表中的依赖
+                        if dep in features:
                             dependencies.add(dep)
                 elif isinstance(explicit_deps, str):
                     if explicit_deps in features:
                         dependencies.add(explicit_deps)
 
-            # 最终过滤：只保留在特征列表中的依赖（排除原始数据字段如 "Jet", "met"）
+            # Final filter — only in-graph features
             dependencies = {dep for dep in dependencies if dep in features}
 
-            # 添加边（确保 source 和 target 都在图中）
             for dep in dependencies:
-                if dep in graph.nodes and feature_name != dep:  # 防止自循环
+                if dep in graph.nodes and feature_name != dep:
                     graph.add_edge(feature_name, dep)
 
         return graph

@@ -1,0 +1,21 @@
+# Data configuration for 3-class energy classification (3/5/7 GeV pion).
+# Labels are auto-assigned from filename patterns via file_magic.
+# NOTE: branch_magic has been removed — feature source paths are now
+#       specified directly in features_edm4hep.yaml (Reduction-as-Config).
+
+treename: "events"
+
+labels:
+  type: simple
+  value:
+    - is_3GeV
+    - is_5GeV
+    - is_7GeV
+
+file_magic:
+  is_3GeV:
+    "3\\.00GeV": 1
+  is_5GeV:
+    "5\\.00GeV": 1
+  is_7GeV:
+    "7\\.00GeV": 1
