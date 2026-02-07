@@ -35,7 +35,7 @@ def test_export_without_dataset():
         model = get_model(
             "mlp_classifier",
             task_type="classification",
-            input_dim=input_dim,
+            event_input_dim=input_dim,
             hidden_dims=[32, 16],
             num_classes=2,
         )
@@ -60,7 +60,7 @@ def test_export_without_dataset():
             model_config={
                 "name": "mlp_classifier",
                 "params": {
-                    "input_dim": input_dim,
+                    "event_input_dim": input_dim,
                     "hidden_dims": [32, 16],
                     "num_classes": 2,
                 },
@@ -81,7 +81,7 @@ def test_export_without_dataset():
         # 验证可以从 metadata 重建模型配置
         model_config = metadata["model_config"]
         model_params = model_config["params"]
-        assert model_params["input_dim"] == input_dim
+        assert model_params["event_input_dim"] == input_dim
 
         print("✓ Export 解耦测试通过\n")
 
@@ -101,7 +101,7 @@ def test_serve_without_pipeline():
         model = get_model(
             "mlp_classifier",
             task_type="classification",
-            input_dim=input_dim,
+            event_input_dim=input_dim,
             hidden_dims=[32, 16],
             num_classes=2,
         )
@@ -126,7 +126,7 @@ def test_serve_without_pipeline():
             model_config={
                 "name": "mlp_classifier",
                 "params": {
-                    "input_dim": input_dim,
+                    "event_input_dim": input_dim,
                     "hidden_dims": [32, 16],
                     "num_classes": 2,
                 },
@@ -152,7 +152,7 @@ def test_serve_without_pipeline():
 
         # 测试推理
         dummy_input = torch.randn(1, input_dim)
-        output = loaded_model({"features": dummy_input})
+        output = loaded_model({"event": dummy_input})
         assert output.shape == (1, 2), f"Expected output shape (1, 2), got {output.shape}"
 
         print("✓ 从 metadata 重建模型成功")

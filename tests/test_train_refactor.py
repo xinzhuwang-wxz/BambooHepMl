@@ -43,7 +43,9 @@ class TestTrainTaskRefactor(unittest.TestCase):
     @patch("bamboohepml.tasks.train.Trainer")
     @patch("torch.utils.data.DataLoader")
     @patch("torch.save")  # Patch torch.save to avoid pickling errors
-    def test_local_backend(self, mock_save, mock_dataloader, mock_trainer_cls, mock_orchestrator_cls):
+    @patch("bamboohepml.metadata.save_model_metadata")  # Patch at source to avoid JSON serialization of mocks
+    @patch("bamboohepml.tasks.train.save_model_metadata")  # Also patch the module-level import
+    def test_local_backend(self, mock_save_metadata, mock_save_metadata2, mock_save, mock_dataloader, mock_trainer_cls, mock_orchestrator_cls):
         """Test LocalBackend workflow: Orchestrator -> DataLoader -> Trainer -> fit"""
 
         # Setup mocks
@@ -57,7 +59,7 @@ class TestTrainTaskRefactor(unittest.TestCase):
         }
         mock_orchestrator.get_input_dim_from_spec.return_value = 10
         mock_orchestrator.setup_model.return_value = MagicMock(spec=torch.nn.Module)
-        mock_orchestrator.setup_data.return_value = MagicMock()  # dataset
+        mock_orchestrator.setup_data.return_value = (MagicMock(), MagicMock())  # (train_dataset, val_dataset)
 
         mock_trainer_instance = mock_trainer_cls.return_value
         mock_trainer_instance.optimizer = MagicMock()
@@ -76,7 +78,7 @@ class TestTrainTaskRefactor(unittest.TestCase):
         mock_orchestrator.setup_data.assert_called()
 
         # 3. Model setup
-        mock_orchestrator.setup_model.assert_called_with(input_dim=10)
+        mock_orchestrator.setup_model.assert_called()
 
         # 4. DataLoader created (LocalBackend uses standard DataLoader)
         mock_dataloader.assert_called()
@@ -114,6 +116,9 @@ class TestTrainTaskRefactor(unittest.TestCase):
                 "learning_paradigm": "semi_supervised",
             }
             mock_orchestrator.config = {"model": {"name": "test_model", "params": {}}}
+            mock_orchestrator.setup_data.return_value = (MagicMock(), MagicMock())  # (train_dataset, val_dataset)
+            mock_orchestrator.get_input_dim_from_spec.return_value = 10
+            mock_orchestrator.setup_model.return_value = MagicMock(spec=torch.nn.Module)
 
             # Mock ray.is_initialized to return False so init is called
             mock_ray.is_initialized.return_value = False

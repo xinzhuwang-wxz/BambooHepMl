@@ -53,7 +53,7 @@ def test_train_eval_test_infer_pipeline():
         X = torch.stack(X)
         y = torch.stack(y)
         return {
-            "_features": X,
+            "event": X,
             "_label_": y,
         }
 
@@ -70,7 +70,7 @@ def test_train_eval_test_infer_pipeline():
     model = get_model(
         "mlp_classifier",
         task_type="classification",
-        input_dim=10,
+        event_input_dim=10,
         hidden_dims=[32, 16],
         num_classes=2,
         dropout=0.1,

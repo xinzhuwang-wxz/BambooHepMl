@@ -50,12 +50,12 @@ def test_feature_model_consistency():
     model = get_model(
         "mlp_classifier",
         task_type="classification",
-        input_dim=input_dim,
+        event_input_dim=input_dim,
         hidden_dims=[64, 32],
         num_classes=2,
     )
 
-    print(f"Model created with input_dim: {input_dim}")
+    print(f"Model created with event_input_dim: {input_dim}")
 
     # 测试前向传播
     if input_key == "event":
@@ -65,7 +65,7 @@ def test_feature_model_consistency():
         object_dim = spec["object"]["dim"]
         dummy_input = torch.randn(2, max_length, object_dim)
 
-    output = model({"features": dummy_input})
+    output = model({"event": dummy_input})
     print(f"Model output shape: {output.shape}")
 
     assert output.shape[0] == 2, "batch size mismatch"
@@ -97,7 +97,7 @@ def test_pipeline_state_validation():
     model_config = {
         "name": "mlp_classifier",
         "params": {
-            "input_dim": input_dim,
+            "event_input_dim": input_dim,
             "hidden_dims": [64, 32],
             "num_classes": 2,
         },
@@ -118,7 +118,7 @@ def test_pipeline_state_validation():
     wrong_model_config = {
         "name": "mlp_classifier",
         "params": {
-            "input_dim": input_dim + 10,  # 错误的维度
+            "event_input_dim": input_dim + 10,  # 错误的维度
             "hidden_dims": [64, 32],
             "num_classes": 2,
         },
