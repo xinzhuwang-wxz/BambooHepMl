@@ -90,6 +90,40 @@ pip install -e ".[test]"
 pip install -e ".[serve]"
 ```
 
+## Quick start
+
+After installation, a minimal end-to-end run requires three steps:
+
+1.  Prepare your configuration files (or use the provided examples):
+
+    ```
+    configs/
+      pipeline_edm4hep.yaml          # paths, model, training params
+      features_edm4hep.yaml          # feature definitions
+      data_edm4hep_classification.yaml   # label scheme
+    ```
+
+2.  Train a classification model:
+
+    ```bash
+    bamboohepml train -c configs/pipeline_edm4hep.yaml
+    ```
+
+    This reads the ROOT files specified in `data.source_path`, builds the
+    feature graph, trains an MLP classifier, and saves the best model to
+    `outputs/edm4hep/`.
+
+3.  Run prediction on the test split:
+
+    ```bash
+    bamboohepml predict -c configs/pipeline_edm4hep.yaml \
+      -m outputs/edm4hep/best_model.pt -o predictions.root
+    ```
+
+To switch to a regression task, point the pipeline at the regression
+data config (`data_edm4hep_regression.yaml`) and the framework
+automatically selects `MLPRegressor` and MSE loss.
+
 ## Usage
 
 BambooHepMl provides five CLI commands.
